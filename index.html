@@ -177,6 +177,7 @@ let CU=null,PAGE='dashboard',MODAL=null,AL=null,
 let charts={},BOOT=true;
 
 const uid=()=>'_'+Math.random().toString(36).substr(2,9);
+const displayRole=r=>r==='partner'?'Alliance Manager':r==='superadmin'?'Super Admin':r==='admin'?'Admin':r;
 const today=()=>new Date().toISOString().split('T')[0];
 const nowTs=()=>new Date().toLocaleString('en-IN');
 const fmtD=d=>d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—';
@@ -629,7 +630,37 @@ ${DB.accounts.map(a=>`<div onclick="window._aSel='${a.id}';R()" style="padding:9
 <button class="abtn abtn-blue" onclick="saveAcc('${sid}')">Save Account Record</button>
 <button class="abtn-sm btn-ghost" style="padding:6px 12px;font-size:12px" onclick="window._aSel=null;R()">Cancel</button>
 ${sid?`<button class="abtn-sm btn-red" style="padding:6px 12px;font-size:12px;margin-left:auto" onclick="delAcc('${sid}')">Delete</button>`:''}
-</div></div></div></div>`;}
+</div>
+
+${sid?adminAMConnectSection(sid):''}
+</div></div></div>`;}
+
+function adminAMConnectSection(sid){
+  const exAM=getAM(sid);
+  const csOpts=(DB.dd.connectStage)||['Initial connect','Trials connect','Business connect'];
+  const curCS=exAM?exAM.connectStage:csOpts[0];
+  const odText=exAM&&exAM.nextConnectDateDM?(odD(exAM.nextConnectDateDM)>0?'+'+odD(exAM.nextConnectDateDM)+' days overdue':'On track — not overdue'):'Enter next connect date';
+  let pills='';
+  csOpts.forEach(function(s){
+    pills+='<button type="button" class="csp'+(curCS===s?' sel':'')+'" onclick="selCS(this,&quot;'+s+'&quot;)">'+s+'</button> ';
+  });
+  return '<div class="card" style="margin-top:10px">'
+    +'<div class="sh sh-am">AM Connect <span style="font-size:11px;font-weight:500;margin-left:3px">(Admin can edit — special cases)</span></div>'
+    +'<div class="banner banner-blue">Admin can update AM Connect in special cases. Normally filled by the Alliance Manager.</div>'
+    +'<div style="margin-bottom:10px"><label class="fl" style="margin-bottom:6px">Connect Stage</label>'
+    +'<div style="display:flex;gap:7px;flex-wrap:wrap">'+pills+'</div>'
+    +'<input type="hidden" id="f-cs" value="'+curCS+'"></div>'
+    +'<div class="fg2">'
+    +'<div class="fg"><label class="fl">Date of Connect — DM</label><input type="date" id="f-acd" value="'+(exAM?exAM.connectDateDM:'')+'" max="'+today()+'"></div>'
+    +'<div class="fg"><label class="fl">Next Date of Connect — DM</label><input type="date" id="f-ncd" value="'+(exAM?exAM.nextConnectDateDM:'')+'" oninput="calcOD(this.value)"></div>'
+    +'</div>'
+    +'<div class="fg"><label class="fl">Connect Overdue (days)</label>'
+    +'<div class="od-disp" id="od-disp">'+odText+'</div></div>'
+    +'<div class="fg"><label class="fl">Action Item</label>'
+    +'<input type="text" id="f-ai" value="'+(exAM?exAM.actionItem:'')+'" placeholder="Describe action taken or planned..."></div>'
+    +'<button class="abtn abtn-blue" style="margin-top:6px" id="admin-am-save-btn" data-accid="'+sid+'" data-exid="'+(exAM?exAM.id:'')+'" onclick="saveAMUpdate(this.dataset.accid,this.dataset.exid)">Save AM Connect</button>'
+    +'</div>';
+}
 
 function pgFU(){
   const all=filtAccs(),myAll=isA()?enAccs():enAccs().filter(a=>a.assignedPartnerId===CU.id);
@@ -742,7 +773,24 @@ ${secs.map(sec=>`<div style="margin-bottom:12px"><div style="font-size:10px;font
 <div class="rp-grid">${COLS.filter(c=>c.s===sec).map(c=>`<label class="rcheck${RPTP[c.k]?' on':''}"><input type="checkbox" ${RPTP[c.k]?'checked':''} onchange="RPTP['${c.k}']=this.checked;R()"> ${c.l}</label>`).join('')}</div></div>`).join('')}
 <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:5px">
 <button class="abtn" style="background:#3aaa5e;color:#fff;padding:7px 14px" onclick="dlCSV()">&#8595; Download CSV</button>
-<button class="abtn abtn-blue" style="padding:7px 14px" onclick="dlAudit()">&#8595; Audit Log</button>
+<button class="abtn abtn-blue" style="padding:7px 14px" onclick="dlAudit()">&#8595; Full Audit Log</button>
+</div>
+<div style="margin-top:14px;padding-top:12px;border-top:1px solid #f0f3f8">
+<div style="font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:8px">&#8595; Download Audit Log by Company</div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+<select id="audit-company-sel" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;outline:none;min-width:200px">
+  <option value="">-- Select Company --</option>
+  ${DB.accounts.map(a=>`<option value="${a.companyName}">${a.companyName}</option>`).join('')}
+</select>
+<button class="abtn" style="background:#4a7ec7;color:#fff;padding:7px 14px" onclick="dlAuditByCompany()">&#8595; Download</button>
+<button class="abtn" style="background:#7b1fa2;color:#fff;padding:7px 14px" onclick="dlAuditByUser()">&#8595; Download by Alliance Manager</button>
+</div>
+<div style="margin-top:8px">
+<select id="audit-user-sel" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;outline:none;min-width:200px;display:none">
+  <option value="">-- Select Alliance Manager --</option>
+  ${DB.users.filter(u=>u.role==='partner').map(p=>`<option value="${p.name}">${p.name}</option>`).join('')}
+</select>
+</div>
 </div></div>
 <div class="card"><div class="ctitle">Preview (${sel.length} columns)</div>
 <div class="tscroll"><table><thead><tr>${sel.map(c=>`<th>${c.l}</th>`).join('')}</tr></thead>
@@ -750,9 +798,41 @@ ${secs.map(sec=>`<div style="margin-bottom:12px"><div style="font-size:10px;font
 </div>
 <div class="card" style="margin-top:0"><div class="ctitle">Audit Log (${DB.auditLog.length} entries)</div>
 <div class="tscroll"><table><thead><tr><th>Timestamp</th><th>User</th><th>Role</th><th>Action</th><th>Record</th><th>Field</th><th>Old</th><th>New</th></tr></thead>
-<tbody>${DB.auditLog.slice(0,50).map(l=>`<tr><td style="font-size:11px;color:var(--muted)">${l.ts}</td><td><strong style="font-size:11px">${l.user}</strong></td><td><span style="background:${l.role==='admin'?'#e8f0fb':'#eafaf1'};color:${l.role==='admin'?'#1a5276':'#145a32'};padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">${l.role}</span></td><td style="font-size:11px">${l.action}</td><td style="font-size:11px">${l.record}</td><td style="font-size:11px;color:var(--muted)">${l.field}</td><td style="font-size:11px;color:#e74c3c">${l.oldv||'—'}</td><td style="font-size:11px;color:#3aaa5e">${l.newv}</td></tr>`).join('')}</tbody></table></div></div>`;}
+<tbody>${DB.auditLog.slice(0,50).map(l=>`<tr><td style="font-size:11px;color:var(--muted)">${l.ts}</td><td><strong style="font-size:11px">${l.user}</strong></td><td><span style="background:${l.role==='admin'?'#e8f0fb':l.role==='superadmin'?'#f3e5f5':'#eafaf1'};color:${l.role==='admin'?'#1a5276':l.role==='superadmin'?'#7b1fa2':'#145a32'};padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">${displayRole(l.role)}</span></td><td style="font-size:11px">${l.action}</td><td style="font-size:11px">${l.record}</td><td style="font-size:11px;color:var(--muted)">${l.field}</td><td style="font-size:11px;color:#e74c3c">${l.oldv||'—'}</td><td style="font-size:11px;color:#3aaa5e">${l.newv}</td></tr>`).join('')}</tbody></table></div></div>`;}
 
 function dlCSV(){const sel=COLS.filter(c=>RPTP[c.k]);const hdr=sel.map(c=>c.l).join(',');const rows=enAccs().map(a=>{const v=getRV(a);return sel.map(c=>`"${(v[c.k]??'').toString().replace(/"/g,'""')}"`).join(',');});const csv=[hdr,...rows].join('\n');const a2=document.createElement('a');a2.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a2.download='AgriTrack_Report.csv';a2.click();sal('Downloaded!','as');}
+function dlAuditByCompany(){
+  const company=document.getElementById('audit-company-sel')?.value;
+  if(!company)return sal('Please select a company','ae');
+  const logs=DB.auditLog.filter(l=>l.record===company);
+  if(!logs.length)return sal('No audit records found for '+company,'ae');
+  const hdr='Timestamp,User,Role,Action,Company,Field,Old Value,New Value';
+  const rows=logs.map(l=>[l.ts,l.user,displayRole(l.role),l.action,l.record,l.field,l.oldv,l.newv].map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(','));
+  const csv=[hdr,...rows].join('\n');
+  const a2=document.createElement('a');
+  a2.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a2.download='AuditLog_'+company.replace(/[^a-z0-9]/gi,'_')+'.csv';
+  a2.click();
+  sal('Downloaded audit log for '+company+'!','as');
+}
+
+function dlAuditByUser(){
+  const sel=document.getElementById('audit-user-sel');
+  if(sel)sel.style.display='block';
+  const user=sel?.value;
+  if(!user)return sal('Please select an Alliance Manager from the dropdown above','ai',4000);
+  const logs=DB.auditLog.filter(l=>l.user===user);
+  if(!logs.length)return sal('No audit records found for '+user,'ae');
+  const hdr='Timestamp,User,Role,Action,Company,Field,Old Value,New Value';
+  const rows=logs.map(l=>[l.ts,l.user,displayRole(l.role),l.action,l.record,l.field,l.oldv,l.newv].map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(','));
+  const csv=[hdr,...rows].join('\n');
+  const a2=document.createElement('a');
+  a2.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a2.download='AuditLog_AM_'+user.replace(/[^a-z0-9]/gi,'_')+'.csv';
+  a2.click();
+  sal('Downloaded audit log for '+user+'!','as');
+}
+
 function dlAudit(){const hdr='Timestamp,User,Role,Action,Record,Field,Old,New';const rows=DB.auditLog.map(l=>[l.ts,l.user,l.role,l.action,l.record,l.field,l.oldv,l.newv].map(v=>`"${v}"`).join(','));const csv=[hdr,...rows].join('\n');const a2=document.createElement('a');a2.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a2.download='AgriTrack_AuditLog.csv';a2.click();sal('Downloaded!','as');}
 
 function pgAdmin(){
@@ -896,7 +976,7 @@ function pgProgress(){
       +(od?'<span class="oday">+'+a.amOD+'d OD</span>':'')
       +'<span style="font-size:14px;font-weight:800;color:'+(col||'var(--muted)')+'">'+pct+'%</span></div></div>'
       +'<div style="background:#f0f3f8;border-radius:8px;height:8px;overflow:hidden;margin-bottom:6px">'
-      +'<div style="background:'+(col||'#dde3ec')+';height:100%;width:'+pct+'%;border-radius:8px"></div></div>'
+      +'<div style="background:linear-gradient(90deg,#c0392b,#e74c3c 20%,#e6a817 33%,#f0c040 50%,#2ecc71 66%,#3aaa5e 100%);height:100%;width:'+pct+'%;border-radius:8px;transition:width .8s"></div></div>'
       +'<div style="display:flex;gap:0">'+milestones+'</div>'
       +actionHtml+'</div>';
   });
@@ -970,7 +1050,7 @@ function pgAdminProgress(){
       +'<div style="font-size:11px;color:var(--muted)">'+pa.length+' accounts &middot; '+done+' completed &middot; '+inProg+' in progress &middot; '+notStarted+' not started</div></div></div>'
       +'<div style="font-size:22px;font-weight:800;color:#4a7ec7">'+avg+'%</div></div>'
       +'<div style="background:#f0f3f8;border-radius:8px;height:10px;overflow:hidden;margin-bottom:8px">'
-      +'<div style="background:linear-gradient(90deg,#4a7ec7,#3aaa5e);height:100%;width:'+avg+'%;border-radius:8px"></div></div>'
+      +'<div style="background:linear-gradient(90deg,#c0392b,#e74c3c 20%,#e6a817 33%,#f0c040 50%,#2ecc71 66%,#3aaa5e 100%);height:100%;width:'+avg+'%;border-radius:8px;transition:width .8s"></div></div>'
       +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:7px">'+accs+'</div></div>';
   }
 
@@ -1041,7 +1121,7 @@ function dlProgressCSV(){
 function pgMyAcc(){return`<div class="g2">
 <div class="card"><div class="ctitle">Profile</div>
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="av ${CU.role==='admin'?'ava':CU.role==='superadmin'?'avs':'avp'}" style="width:44px;height:44px;font-size:14px">${CU.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-<div><div style="font-size:13px;font-weight:700">${CU.name}</div><div style="font-size:11px;color:var(--muted)">${CU.email}</div><span style="padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;background:#e8f0fb;color:#4a7ec7;margin-top:3px;display:inline-block">${CU.role}</span></div></div>
+<div><div style="font-size:13px;font-weight:700">${CU.name}</div><div style="font-size:11px;color:var(--muted)">${CU.email}</div><span style="padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;background:#e8f0fb;color:#4a7ec7;margin-top:3px;display:inline-block">${displayRole(CU.role)}</span></div></div>
 ${fi('Full Name','men',CU.name)}${fi('Email','mee',CU.email,'email')}
 <button class="abtn abtn-blue" onclick="saveProf()">Save Changes</button></div>
 <div class="card"><div class="ctitle">Change Password</div>
