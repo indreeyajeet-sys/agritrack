@@ -498,8 +498,24 @@ ${isA()?`<button class="abtn abtn-blue" onclick="PAGE='account-entry';R()">Manag
     <div style="position:relative;height:140px"><canvas id="connectDonut"></canvas></div>
   </div>
   <div class="card" style="padding:14px">
-    <div class="ctitle">${isA()?"Alliance Manager Progress %":"My Progress"}</div>
-    <div style="position:relative;height:170px"><canvas id="amLeader"></canvas></div>
+    <div class="ctitle">${isA()?'Alliance Manager Progress %':'Account Status Summary'}</div>
+    ${isA()?'<div style="position:relative;height:170px"><canvas id="amLeader"></canvas></div>':function(){
+      const myA=all.filter(a=>a.assignedPartnerId===CU.id);
+      const stagePct2={'Initial connect':33,'Trials connect':66,'Business connect':100};
+      if(!myA.length)return '<div style="text-align:center;padding:30px;color:var(--muted);font-size:12px">No accounts assigned</div>';
+      return myA.map(function(a){
+        const cs=a.am?a.am.connectStage:'';
+        const pct=stagePct2[cs]||0;
+        const col=pct>=100?'#3aaa5e':pct>=66?'#2ecc71':pct>=33?'#e6a817':'#e74c3c';
+        return '<div style="margin-bottom:10px">'
+          +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">'
+          +'<span style="font-weight:600">'+a.companyName+'</span>'
+          +'<span style="font-weight:700;color:'+col+'">'+pct+'%</span></div>'
+          +'<div style="background:#f0f3f8;border-radius:6px;height:7px;overflow:hidden">'
+          +'<div style="background:linear-gradient(90deg,#c0392b,#e74c3c 20%,#e6a817 33%,#f0c040 50%,#2ecc71 66%,#3aaa5e 100%);height:100%;width:'+pct+'%;border-radius:6px"></div></div>'
+          +'<div style="font-size:10px;color:var(--muted);margin-top:2px">'+(cs||'Not started')+'</div></div>';
+      }).join('');
+    }()}
   </div>
 </div>
 `;}
@@ -680,16 +696,19 @@ function drawCH(){
   // Dashboard charts
   const sbEl=document.getElementById('stageBar');
   if(sbEl){
+    // Filter accounts by role — AM only sees their own
+    const chartAccs=isA()?all:all.filter(a=>a.assignedPartnerId===CU.id);
     const stageMap={};
     DB.stages.forEach(s=>{stageMap[s.id]=s.name;});
-    const stageCounts=DB.stages.map(s=>({name:s.name,count:all.filter(a=>a.stageId===s.id).length}));
+    const stageCounts=DB.stages.map(s=>({name:s.name,count:chartAccs.filter(a=>a.stageId===s.id).length})).filter(s=>s.count>0);
     charts.sb=new Chart(sbEl,{type:'bar',data:{labels:stageCounts.map(s=>s.name.length>14?s.name.slice(0,14)+'…':s.name),datasets:[{data:stageCounts.map(s=>s.count),backgroundColor:['#4a7ec7','#3a8fd6','#3aaa5e','#e6a817','#e74c3c','#9b59b6'],borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}}},x:{ticks:{font:{size:9}}}}}});
   }
 
   const cdEl=document.getElementById('connectDonut');
   if(cdEl){
+    const donutAccs=isA()?all:all.filter(a=>a.assignedPartnerId===CU.id);
     const cStages=['Initial connect','Trials connect','Business connect'];
-    const cCounts=[all.filter(a=>a.am?.connectStage==='Initial connect').length,all.filter(a=>a.am?.connectStage==='Trials connect').length,all.filter(a=>a.am?.connectStage==='Business connect').length,all.filter(a=>!a.am?.connectStage).length];
+    const cCounts=[donutAccs.filter(a=>a.am&&a.am.connectStage==='Initial connect').length,donutAccs.filter(a=>a.am&&a.am.connectStage==='Trials connect').length,donutAccs.filter(a=>a.am&&a.am.connectStage==='Business connect').length,donutAccs.filter(a=>!a.am||!a.am.connectStage).length];
     charts.cd=new Chart(cdEl,{type:'doughnut',data:{labels:['Initial connect','Trials connect','Business connect','Not started'],datasets:[{data:cCounts,backgroundColor:['#e6a817','#4a7ec7','#3aaa5e','#dde3ec'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{display:false}}}});
   }
 
@@ -893,10 +912,12 @@ function pgProgress(){
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
     +'<div class="ctitle" style="margin-bottom:0">Overall Portfolio Progress</div>'
     +'<div style="font-size:20px;font-weight:800;color:#4a7ec7">'+avgPct+'%</div></div>'
-    +'<div style="background:#f0f3f8;border-radius:10px;height:12px;overflow:hidden">'
-    +'<div style="background:linear-gradient(90deg,#4a7ec7,#3aaa5e);height:100%;width:'+avgPct+'%;border-radius:10px"></div></div>'
-    +'<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--muted)">'
-    +'<span>Initial Connect (33%)</span><span>Trials Connect (66%)</span><span>Business Connect (100%)</span></div></div>'
+    +'<div style="background:#f0f3f8;border-radius:10px;height:14px;overflow:hidden">'
+    +'<div style="background:linear-gradient(90deg,#c0392b,#e74c3c '+Math.min(avgPct,20)+'%,#e6a817 33%,#f0c040 50%,#2ecc71 66%,#3aaa5e 100%);height:100%;width:'+avgPct+'%;border-radius:10px;transition:width 1s"></div></div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:5px">'
+    +'<span style="font-size:10px;color:#c0392b;font-weight:600">0%</span>'
+    +'<span style="font-size:10px;color:#e6a817;font-weight:600">50%</span>'
+    +'<span style="font-size:10px;color:#3aaa5e;font-weight:600">100%</span></div></div>'
     +'<div class="card"><div class="ctitle">Account-wise Progress</div>'+accsHtml+'</div>';
 }
 
