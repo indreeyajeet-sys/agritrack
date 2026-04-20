@@ -476,7 +476,7 @@ function pgDash(){
 <div class="tscroll"><table style="min-width:500px"><thead><tr><th>Account</th>${isA()?'<th>Alliance Manager</th>':''}<th>Stage</th><th>Status</th><th>AM Connect</th><th>OD</th></tr></thead>
 <tbody>${f.slice(0,8).map(a=>`<tr><td><strong>${a.companyName}</strong><div style="font-size:10px;color:var(--muted)">${a.accountGroup}</div></td>${isA()?`<td style="font-size:11px">${a.partnerName}</td>`:''}<td style="font-size:11px">${a.stageName}</td><td><span class="pill ${sc(a.overallStatus)}">${a.overallStatus==='red'?'Red':a.overallStatus==='yellow'?'Yellow':'Green'}</span></td><td style="font-size:11px">${a.am?.connectStage||'<span style="color:var(--muted)">Not updated</span>'}</td><td>${a.amOD>0?`<span class="oday">+${a.amOD}d</span>`:'<span style="color:#3aaa5e;font-size:11px">OK</span>'}</td></tr>`).join('')}</tbody></table></div></div>
 <div class="card"><div class="ctitle">Overdue AM Connects</div>
-${myAll.filter(a=>a.amOD>0).slice(0,5).map(a=>`<div style="padding:7px 10px;border:1px solid #fde8e8;border-radius:7px;background:#fff8f8;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center"><div><strong style="font-size:12px">${a.companyName}</strong><div style="font-size:11px;color:var(--muted)">${a.partnerName} · Next: ${fmtD(a.am?.nextConnectDateDM)}</div></div><span class="oday">+${a.amOD}d</span></div>`).join('')||'<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">No overdue items</div>'}
+${myAll.filter(a=>a.amOD>0).slice(0,5).map(a=>`<div style="padding:7px 10px;border:1px solid #fde8e8;border-radius:7px;background:#fff8f8;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center"><div><strong style="font-size:12px">${a.companyName}</strong><div style="font-size:11px;color:var(--muted)">${a.partnerName} &middot; Next: ${fmtD(a.am?.nextConnectDateDM)}</div></div><span class="oday">+${a.amOD}d</span></div>`).join('')||'<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">No overdue items</div>'}
 </div></div>
 <div style="display:flex;gap:10px;justify-content:center;margin-top:4px">
 ${isA()?`<button class="abtn abtn-blue" onclick="PAGE='account-entry';R()">Manage Account Records</button>`:`<button class="abtn abtn-blue" onclick="PAGE='am-update';R()">Update AM Connect</button>`}</div>
@@ -505,23 +505,23 @@ ${isA()?`<button class="abtn abtn-blue" onclick="PAGE='account-entry';R()">Manag
 `;}
 
 function pgMyAccs(){
-  if(!canPartner('viewMyAccounts'))return'<div class="card"><div style="text-align:center;padding:40px;color:#e74c3c;font-size:13px">⛔ You do not have permission to view assigned accounts.</div></div>';
+  if(!canPartner('viewMyAccounts'))return'<div class="card"><div style="text-align:center;padding:40px;color:#e74c3c;font-size:13px">&#x26D4; You do not have permission to view assigned accounts.</div></div>';
   const myAccs=enAccs().filter(a=>a.assignedPartnerId===CU.id);
   return`<div style="font-size:17px;font-weight:700;margin-bottom:3px">My Assigned Accounts</div>
 <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Click any account to update your AM Connect progress.</div>
 ${!myAccs.length?`<div class="card"><div style="text-align:center;padding:28px;color:var(--muted)">No accounts assigned yet.</div></div>`:myAccs.map(a=>`<div class="acc-card" onclick="SEL_ACC='${a.id}';PAGE='am-update';R()">
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px"><div><div style="font-size:13px;font-weight:700">${a.companyName}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${a.accountGroup} · ${a.stageName}</div></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px"><div><div style="font-size:13px;font-weight:700">${a.companyName}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${a.accountGroup} &middot; ${a.stageName}</div></div>
 <div style="display:flex;gap:5px;align-items:center"><span class="pill ${sc(a.overallStatus)}">${a.overallStatus==='red'?'Red':a.overallStatus==='yellow'?'Yellow':'Green'}</span>${a.amOD>0?`<span class="oday">+${a.amOD}d OD</span>`:''}</div></div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;font-size:11px">
 <div><div style="color:var(--muted)">Focus Area</div><strong>${a.focusArea||'—'}</strong></div>
 <div><div style="color:var(--muted)">Priority</div><strong>${a.accountPriority||'—'}</strong></div>
 <div><div style="color:var(--muted)">Crop</div><strong>${a.crop||'—'}</strong></div>
 <div><div style="color:var(--muted)">Connect Stage</div><strong>${a.am?.connectStage||'<span style="color:var(--muted)">Not set</span>'}</strong></div></div>
-${canPartner('updateAMConnect')?a.am?`<div style="margin-top:7px;padding-top:7px;border-top:1px solid #f0f3f8;display:flex;gap:14px;font-size:11px"><span><span style="color:var(--muted)">Last:</span> <strong>${fmtD(a.am.connectDateDM)}</strong></span><span><span style="color:var(--muted)">Next:</span> <strong>${fmtD(a.am.nextConnectDateDM)}</strong></span></div>`:`<div style="margin-top:7px;padding-top:7px;border-top:1px solid #f0f3f8;font-size:11px;color:#e6a817;font-weight:600">No AM Connect entry yet — click to add</div>`:'<div style="margin-top:7px;padding-top:7px;border-top:1px solid #f0f3f8;font-size:11px;color:#e74c3c">⛔ AM Connect update not permitted</div>'}
+${canPartner('updateAMConnect')?a.am?`<div style="margin-top:7px;padding-top:7px;border-top:1px solid #f0f3f8;display:flex;gap:14px;font-size:11px"><span><span style="color:var(--muted)">Last:</span> <strong>${fmtD(a.am.connectDateDM)}</strong></span><span><span style="color:var(--muted)">Next:</span> <strong>${fmtD(a.am.nextConnectDateDM)}</strong></span></div>`:`<div style="margin-top:7px;padding-top:7px;border-top:1px solid #f0f3f8;font-size:11px;color:#e6a817;font-weight:600">No AM Connect entry yet — click to add</div>`:'<div style="margin-top:7px;padding-top:7px;border-top:1px solid #f0f3f8;font-size:11px;color:#e74c3c">&#x26D4; AM Connect update not permitted</div>'}
 </div>`).join('')}`;}
 
 function pgAMUpd(){
-  if(!canPartner('updateAMConnect'))return'<div class="card"><div style="text-align:center;padding:40px;color:#e74c3c;font-size:13px">⛔ You do not have permission to update AM Connect.</div></div>';
+  if(!canPartner('updateAMConnect'))return'<div class="card"><div style="text-align:center;padding:40px;color:#e74c3c;font-size:13px">&#x26D4; You do not have permission to update AM Connect.</div></div>';
   const myAccs=enAccs().filter(a=>a.assignedPartnerId===CU.id);
   const sel=SEL_ACC?DB.accounts.find(a=>a.id===SEL_ACC):null;
   const eSel=sel?enAccs().find(a=>a.id===SEL_ACC):null;
@@ -532,7 +532,7 @@ function pgAMUpd(){
 <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Select an account and fill in your AM Connect progress.</div>
 <div class="card"><div class="divlbl">Select Account</div>
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:9px">
-${myAccs.map(a=>`<div onclick="SEL_ACC='${a.id}';R()" style="padding:9px 11px;border:2px solid ${SEL_ACC===a.id?'#4a7ec7':'var(--border)'};border-radius:8px;cursor:pointer;background:${SEL_ACC===a.id?'#f0f7ff':'#fff'}"><div style="font-size:12px;font-weight:700">${a.companyName}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${a.accountGroup} · <span class="pill ${sc(a.overallStatus)}" style="font-size:10px;padding:1px 5px">${a.overallStatus}</span></div></div>`).join('')}
+${myAccs.map(a=>`<div onclick="SEL_ACC='${a.id}';R()" style="padding:9px 11px;border:2px solid ${SEL_ACC===a.id?'#4a7ec7':'var(--border)'};border-radius:8px;cursor:pointer;background:${SEL_ACC===a.id?'#f0f7ff':'#fff'}"><div style="font-size:12px;font-weight:700">${a.companyName}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${a.accountGroup} &middot; <span class="pill ${sc(a.overallStatus)}" style="font-size:10px;padding:1px 5px">${a.overallStatus}</span></div></div>`).join('')}
 </div></div>
 ${!sel?`<div class="card"><div style="text-align:center;padding:18px;color:var(--muted)">Select an account above to update AM Connect</div></div>`:`
 ${canPartner('viewAccountOverview')?`<div class="card"><div class="sh sh-ov">Account Overview <span style="font-size:11px;font-weight:500;margin-left:3px">(set by admin — read only)</span></div>
@@ -547,7 +547,7 @@ ${canPartner('viewAccountPriority')?`<div class="fg"><label class="fl">Company T
 ${canPartner('viewCrop')?`<div class="fg"><label class="fl">Crop</label><div class="ro-box">${sel.crop||'—'}</div></div>`:''}
 ${canPartner('viewAccountStage')?`<div class="fg"><label class="fl">Stage</label><div class="ro-box">${eSel?.stageName||'—'}</div></div>
 <div class="fg"><label class="fl">Overall Status</label><div class="ro-box"><span class="pill ${sc(sel.overallStatus)}">${sel.overallStatus==='red'?'Red':sel.overallStatus==='yellow'?'Yellow':'Green'}</span></div></div>`:''}
-</div></div>`:'<div class="card" style="border-color:#fde8e8"><div style="padding:14px;text-align:center;color:#e74c3c;font-size:12px">⛔ You do not have permission to view account overview details</div></div>'}
+</div></div>`:'<div class="card" style="border-color:#fde8e8"><div style="padding:14px;text-align:center;color:#e74c3c;font-size:12px">&#x26D4; You do not have permission to view account overview details</div></div>'}
 <div class="card"><div class="sh sh-am">AM Connect <span style="font-size:11px;font-weight:500;margin-left:3px">(Alliance Manager fills this)</span></div>
 ${exAM?`<div class="banner banner-blue">Last saved on ${exAM.updatedAt}. Saving again updates for everyone.</div>`:`<div class="banner banner-green">No AM Connect entry yet for this account.</div>`}
 <div style="margin-bottom:12px"><label class="fl" style="margin-bottom:7px">Connect Stage</label>
@@ -572,7 +572,7 @@ ${canPartner('viewTrials')?`${canPartner('viewTrials')?`<div class="card"><div c
 <div class="fg"><label class="fl">Trial Overdue</label><div class="od-disp">${odD(sel.trials.connectDate)>0?`+${odD(sel.trials.connectDate)} days overdue`:'On track'}</div></div>
 ${canPartner('viewTrialRemarks')?`<div class="fg"><label class="fl">Agri Manager</label><div class="ro-box">${sel.trials.agriManager||'—'}</div></div>
 <div class="fg"><label class="fl">Remarks</label><div class="ro-box" style="min-height:55px">${sel.trials.remarks||'—'}</div></div>`:''}
-</div></div>`:''}`:'<div class="card" style="border-color:#fde8e8"><div style="text-align:center;padding:20px;color:#e74c3c;font-size:12px">⛔ No permission to view Trials section</div></div>'}
+</div></div>`:''}`:'<div class="card" style="border-color:#fde8e8"><div style="text-align:center;padding:20px;color:#e74c3c;font-size:12px">&#x26D4; No permission to view Trials section</div></div>'}
 `}`;}
 
 function pgAccEntry(){
@@ -582,7 +582,7 @@ function pgAccEntry(){
   const sid=window._aSel||'';const acc=sid?DB.accounts.find(a=>a.id===sid):null;
   return`<div class="g2" style="align-items:start">
 <div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:15px;font-weight:700">Account Records (${DB.accounts.length})</div><button class="nfbtn" onclick="window._aSel='';R()">+ New Account</button></div>
-${DB.accounts.map(a=>`<div onclick="window._aSel='${a.id}';R()" style="padding:9px 12px;border:2px solid ${sid===a.id?'#4a7ec7':'var(--border)'};border-radius:8px;margin-bottom:7px;cursor:pointer;background:${sid===a.id?'#f0f7ff':'#fff'}"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:12px;font-weight:700">${a.companyName}</div><div style="font-size:10px;color:var(--muted);margin-top:1px">${a.accountGroup||'—'} · ${gu(a.assignedPartnerId).name}</div></div><span class="pill ${sc(a.overallStatus)}" style="font-size:10px">${a.overallStatus==='red'?'Red':a.overallStatus==='yellow'?'Yellow':'Green'}</span></div></div>`).join('')}
+${DB.accounts.map(a=>`<div onclick="window._aSel='${a.id}';R()" style="padding:9px 12px;border:2px solid ${sid===a.id?'#4a7ec7':'var(--border)'};border-radius:8px;margin-bottom:7px;cursor:pointer;background:${sid===a.id?'#f0f7ff':'#fff'}"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:12px;font-weight:700">${a.companyName}</div><div style="font-size:10px;color:var(--muted);margin-top:1px">${a.accountGroup||'—'} &middot; ${gu(a.assignedPartnerId).name}</div></div><span class="pill ${sc(a.overallStatus)}" style="font-size:10px">${a.overallStatus==='red'?'Red':a.overallStatus==='yellow'?'Yellow':'Green'}</span></div></div>`).join('')}
 </div>
 <div><div class="card">
 <div class="sh sh-ov">${acc?`Edit: ${acc.companyName}`:'New Account Record'}</div>
@@ -621,9 +621,9 @@ function pgFU(){
   const paged=all.slice(PIDX*PSZ,(PIDX+1)*PSZ),tp=Math.max(1,Math.ceil(all.length/PSZ));
   const pts=DB.users.filter(u=>u.role==='partner');
   return`<div class="g3">
-<div class="kcard kc-r" style="border-radius:10px"><div style="display:flex;justify-content:space-between"><div><div class="klbl">Overdue</div><div class="knum">${ov}</div><div class="ksub">AM OD</div></div><div style="width:34px;height:34px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-size:15px">⏰</div></div></div>
-<div class="kcard kc-y" style="border-radius:10px"><div style="display:flex;justify-content:space-between"><div><div class="klbl">Due Soon</div><div class="knum">${ds}</div><div class="ksub">Active</div></div><div style="width:34px;height:34px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-size:15px">🕐</div></div></div>
-<div class="kcard kc-g" style="border-radius:10px"><div style="display:flex;justify-content:space-between"><div><div class="klbl">Completed</div><div class="knum">${cp}</div><div class="ksub">Green status</div></div><div style="width:34px;height:34px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-size:15px">✔</div></div></div>
+<div class="kcard kc-r" style="border-radius:10px"><div style="display:flex;justify-content:space-between"><div><div class="klbl">Overdue</div><div class="knum">${ov}</div><div class="ksub">AM OD</div></div><div style="width:34px;height:34px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-size:15px">&#x23F0;</div></div></div>
+<div class="kcard kc-y" style="border-radius:10px"><div style="display:flex;justify-content:space-between"><div><div class="klbl">Due Soon</div><div class="knum">${ds}</div><div class="ksub">Active</div></div><div style="width:34px;height:34px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-size:15px">&#x1F550;</div></div></div>
+<div class="kcard kc-g" style="border-radius:10px"><div style="display:flex;justify-content:space-between"><div><div class="klbl">Completed</div><div class="knum">${cp}</div><div class="ksub">Green status</div></div><div style="width:34px;height:34px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-size:15px">&#x2714;</div></div></div>
 </div>
 <div class="card">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -745,7 +745,7 @@ function pgAdmin(){
   <!-- Admin Accounts Management -->
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="ctitle" style="margin-bottom:0;color:#7b1fa2">👑 Admin Accounts (${adms.length})</div>
+      <div class="ctitle" style="margin-bottom:0;color:#7b1fa2">&#x1F451; Admin Accounts (${adms.length})</div>
       <button class="nfbtn" style="background:#7b1fa2" onclick="openM('add-admin')">+ Add Admin</button>
     </div>
     <table><thead><tr><th>Name</th><th>Email</th><th>Permissions</th><th>Actions</th></tr></thead>
@@ -793,7 +793,7 @@ function pgAdmin(){
         </div></td>
       </tr>`;}).join('')}
     </tbody></table>
-  </div>`:'<div class="card" style="margin-bottom:12px;border-color:#fde8e8"><div style="padding:16px;text-align:center;color:#e74c3c;font-size:12px">⛔ You do not have permission to manage partners</div></div>';
+  </div>`:'<div class="card" style="margin-bottom:12px;border-color:#fde8e8"><div style="padding:16px;text-align:center;color:#e74c3c;font-size:12px">&#x26D4; You do not have permission to manage partners</div></div>';
 
   // PENDING SIGNUPS
   const pendingPanel=DB.pendingSignups.length&&can('managePartners')?`
@@ -801,7 +801,7 @@ function pgAdmin(){
     <div class="ctitle" style="color:#b8860b">Pending Approvals (${DB.pendingSignups.length})</div>
     ${DB.pendingSignups.map(p=>`<div class="prow">
       <div class="av avp">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-      <div style="flex:1"><div style="font-size:12px;font-weight:600">${p.name}</div><div style="font-size:10px;color:var(--muted)">${p.email} · ${p.requested_at}</div>${p.note?`<div style="font-size:11px">${p.note}</div>`:''}</div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:600">${p.name}</div><div style="font-size:10px;color:var(--muted)">${p.email} &middot; ${p.requested_at}</div>${p.note?`<div style="font-size:11px">${p.note}</div>`:''}</div>
       <div style="display:flex;gap:4px">
         <button class="abtn-sm btn-grn" onclick="approveP('${p.id}')">Approve</button>
         <button class="abtn-sm btn-red" onclick="rejectP('${p.id}')">Reject</button>
@@ -817,17 +817,17 @@ function pgAdmin(){
       <td><div style="display:flex;gap:4px"><button class="abtn-sm btn-ghost" onclick="openM('edit-stage','${s.id}')">Edit</button><button class="abtn-sm btn-red" onclick="delStg('${s.id}')">Del</button></div></td>
     </tr>`).join('')}</tbody></table>
     <button class="abtn-sm btn-blue" style="margin-top:9px;padding:4px 10px" onclick="openM('add-stage')">+ Add Stage</button>
-  </div>`:`<div class="card" style="margin-bottom:12px;border-color:#fde8e8"><div style="padding:16px;text-align:center;color:#e74c3c;font-size:12px">⛔ No permission to manage pipeline stages</div></div>`;
+  </div>`:`<div class="card" style="margin-bottom:12px;border-color:#fde8e8"><div style="padding:16px;text-align:center;color:#e74c3c;font-size:12px">&#x26D4; No permission to manage pipeline stages</div></div>`;
 
   // DROPDOWN OPTIONS
   const ddPanel=can('manageDropdowns')?`
   <div class="card"><div class="ctitle">Dropdown Options Manager</div>
     ${Object.keys(dd).map(key=>`<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:8px;padding:10px">
       <div style="font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:6px">${ddL[key]||key}</div>
-      <div style="display:flex;flex-wrap:wrap;min-height:26px;margin-bottom:6px">${(dd[key]||[]).map((o,i)=>`<span class="dtag">${o}<button class="dtag-x" onclick="rmDD('${key}',${i})">×</button></span>`).join('')}${!dd[key]?.length?'<span style="font-size:11px;color:var(--muted)">No options yet</span>':''}</div>
+      <div style="display:flex;flex-wrap:wrap;min-height:26px;margin-bottom:6px">${(dd[key]||[]).map((o,i)=>`<span class="dtag">${o}<button class="dtag-x" onclick="rmDD('${key}',${i})">&times;</button></span>`).join('')}${!dd[key]?.length?'<span style="font-size:11px;color:var(--muted)">No options yet</span>':''}</div>
       <div style="display:flex;gap:5px"><input type="text" id="dd-${key}" placeholder="New option..." style="flex:1;padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:5px;outline:none"><button class="abtn-sm btn-blue" style="padding:4px 10px;white-space:nowrap" onclick="addDD('${key}')">+ Add</button></div>
     </div>`).join('')}
-  </div>`:`<div class="card" style="border-color:#fde8e8"><div style="padding:16px;text-align:center;color:#e74c3c;font-size:12px">⛔ No permission to manage dropdown options</div></div>`;
+  </div>`:`<div class="card" style="border-color:#fde8e8"><div style="padding:16px;text-align:center;color:#e74c3c;font-size:12px">&#x26D4; No permission to manage dropdown options</div></div>`;
 
   return`<div class="g2">
 <div>${pendingPanel}${saPanel}${partnerPanel}</div>
@@ -836,194 +836,158 @@ function pgAdmin(){
 
 
 function pgProgress(){
-  /* Alliance Manager progress report — shows connect stage progress per account */
   const myAccs=enAccs().filter(a=>a.assignedPartnerId===CU.id);
   const stages=['Initial connect','Trials connect','Business connect'];
   const stageColors={'Initial connect':'#e6a817','Trials connect':'#4a7ec7','Business connect':'#3aaa5e'};
   const stagePct={'Initial connect':33,'Trials connect':66,'Business connect':100};
 
-  if(!myAccs.length)return`<div class="card"><div style="text-align:center;padding:28px;color:var(--muted)">No accounts assigned yet.</div></div>`;
+  if(!myAccs.length)return'<div class="card"><div style="text-align:center;padding:28px;color:var(--muted)">No accounts assigned yet.</div></div>';
 
-  // Summary stats
-  const done=myAccs.filter(a=>a.am?.connectStage==='Business connect').length;
-  const inProgress=myAccs.filter(a=>a.am?.connectStage&&a.am.connectStage!=='Business connect').length;
-  const notStarted=myAccs.filter(a=>!a.am?.connectStage).length;
-  const avgPct=myAccs.length?Math.round(myAccs.reduce((sum,a)=>{return sum+(stagePct[a.am?.connectStage]||0);},0)/myAccs.length):0;
+  const done=myAccs.filter(a=>a.am&&a.am.connectStage==='Business connect').length;
+  const inProgress=myAccs.filter(a=>a.am&&a.am.connectStage&&a.am.connectStage!=='Business connect').length;
+  const notStarted=myAccs.filter(a=>!a.am||!a.am.connectStage).length;
+  const avgPct=myAccs.length?Math.round(myAccs.reduce(function(sum,a){return sum+(stagePct[a.am&&a.am.connectStage]||0);},0)/myAccs.length):0;
 
-  return`
-<div style="font-size:17px;font-weight:700;margin-bottom:3px">My Progress Report</div>
-<div style="font-size:12px;color:var(--muted);margin-bottom:16px">Track your AM Connect progress across all assigned accounts.</div>
-
-<!-- Summary KPIs -->
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
-  <div class="kcard kc-b"><div class="klbl">Total Accounts</div><div class="knum">${myAccs.length}</div></div>
-  <div class="kcard kc-g"><div class="klbl">Business Connect</div><div class="knum">${done}</div><div class="ksub">Completed</div></div>
-  <div class="kcard kc-y"><div class="klbl">In Progress</div><div class="knum">${inProgress}</div><div class="ksub">Ongoing</div></div>
-  <div class="kcard kc-r"><div class="klbl">Not Started</div><div class="knum">${notStarted}</div><div class="ksub">Pending</div></div>
-</div>
-
-<!-- Overall progress bar -->
-<div class="card" style="margin-bottom:16px">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <div class="ctitle" style="margin-bottom:0">Overall Portfolio Progress</div>
-    <div style="font-size:20px;font-weight:800;color:#4a7ec7">${avgPct}%</div>
-  </div>
-  <div style="background:#f0f3f8;border-radius:10px;height:12px;overflow:hidden">
-    <div style="background:linear-gradient(90deg,#4a7ec7,#3aaa5e);height:100%;width:${avgPct}%;border-radius:10px;transition:width .5s"></div>
-  </div>
-  <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--muted)">
-    <span>Initial Connect (33%)</span><span>Trials Connect (66%)</span><span>Business Connect (100%)</span>
-  </div>
-</div>
-
-<!-- Per account progress -->
-<div class="card">
-  <div class="ctitle">Account-wise Progress</div>
-  ${myAccs.map(a=>{
-    const cs=a.am?.connectStage||'';
+  let accsHtml='';
+  myAccs.forEach(function(a){
+    const cs=a.am?a.am.connectStage:'';
     const pct=stagePct[cs]||0;
     const col=stageColors[cs]||'#dde3ec';
     const od=a.amOD>0;
-    return`<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #f0f3f8">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-        <div>
-          <div style="font-size:13px;font-weight:700">${a.companyName}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${a.accountGroup} · ${a.stageName}</div>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          ${cs?`<span style="background:${col}22;color:${col};border:1px solid ${col}44;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700">${cs}</span>`:'<span style="background:#f4f6fb;color:var(--muted);padding:2px 10px;border-radius:12px;font-size:11px">Not started</span>'}
-          ${od?`<span class="oday">+${a.amOD}d OD</span>`:''}
-          <span style="font-size:14px;font-weight:800;color:${col||'var(--muted)'}">${pct}%</span>
-        </div>
-      </div>
-      <!-- Progress bar -->
-      <div style="background:#f0f3f8;border-radius:8px;height:8px;overflow:hidden;margin-bottom:6px">
-        <div style="background:${col||'#dde3ec'};height:100%;width:${pct}%;border-radius:8px;transition:width .5s"></div>
-      </div>
-      <!-- Stage milestones -->
-      <div style="display:flex;gap:0;position:relative">
-        ${stages.map((s,i)=>{
-          const done2=pct>=(i+1)*33;
-          const active=cs===s;
-          return`<div style="flex:1;text-align:center">
-            <div style="width:14px;height:14px;border-radius:50%;border:2px solid ${done2||active?stageColors[s]:'#dde3ec'};background:${done2?stageColors[s]:'#fff'};margin:0 auto 3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff">${done2?'✓':''}</div>
-            <div style="font-size:9px;color:${active?stageColors[s]:'var(--muted)'};font-weight:${active?'700':'400'}">${s}</div>
-            ${a.am&&cs===s&&a.am.connectDateDM?`<div style="font-size:9px;color:var(--muted)">${fmtD(a.am.connectDateDM)}</div>`:''}
-          </div>`;}).join('')}
-      </div>
-      ${a.am?.actionItem?`<div style="margin-top:6px;font-size:11px;color:#4a5568"><span style="color:var(--muted)">Action:</span> ${a.am.actionItem}</div>`:''}
-    </div>`;}).join('')}
-</div>`;
+    let milestones='';
+    stages.forEach(function(s,i){
+      const isDone=(pct>=(i+1)*33);
+      const isActive=(cs===s);
+      const dateStr=(a.am&&cs===s&&a.am.connectDateDM)?'<div style="font-size:9px;color:var(--muted)">'+fmtD(a.am.connectDateDM)+'</div>':'';
+      milestones+='<div style="flex:1;text-align:center">'
+        +'<div style="width:14px;height:14px;border-radius:50%;border:2px solid '+(isDone||isActive?stageColors[s]:'#dde3ec')+';background:'+(isDone?stageColors[s]:'#fff')+';margin:0 auto 3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff">'+(isDone?'&#x2713;':'')+'</div>'
+        +'<div style="font-size:9px;color:'+(isActive?stageColors[s]:'var(--muted)')+';font-weight:'+(isActive?'700':'400')+'">'+s+'</div>'+dateStr+'</div>';
+    });
+    const actionHtml=a.am&&a.am.actionItem?'<div style="margin-top:6px;font-size:11px;color:#4a5568"><span style="color:var(--muted)">Action:</span> '+a.am.actionItem+'</div>':'';
+    accsHtml+='<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #f0f3f8">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
+      +'<div><div style="font-size:13px;font-weight:700">'+a.companyName+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+a.accountGroup+' &middot; '+a.stageName+'</div></div>'
+      +'<div style="display:flex;gap:6px;align-items:center">'
+      +(cs?'<span style="background:'+col+'22;color:'+col+';border:1px solid '+col+'44;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700">'+cs+'</span>':'<span style="background:#f4f6fb;color:var(--muted);padding:2px 10px;border-radius:12px;font-size:11px">Not started</span>')
+      +(od?'<span class="oday">+'+a.amOD+'d OD</span>':'')
+      +'<span style="font-size:14px;font-weight:800;color:'+(col||'var(--muted)')+'">'+pct+'%</span></div></div>'
+      +'<div style="background:#f0f3f8;border-radius:8px;height:8px;overflow:hidden;margin-bottom:6px">'
+      +'<div style="background:'+(col||'#dde3ec')+';height:100%;width:'+pct+'%;border-radius:8px"></div></div>'
+      +'<div style="display:flex;gap:0">'+milestones+'</div>'
+      +actionHtml+'</div>';
+  });
+
+  return '<div style="font-size:17px;font-weight:700;margin-bottom:3px">My Progress Report</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:16px">Track your AM Connect progress across all assigned accounts.</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">'
+    +'<div class="kcard kc-b"><div class="klbl">Total Accounts</div><div class="knum">'+myAccs.length+'</div></div>'
+    +'<div class="kcard kc-g"><div class="klbl">Business Connect</div><div class="knum">'+done+'</div><div class="ksub">Completed</div></div>'
+    +'<div class="kcard kc-y"><div class="klbl">In Progress</div><div class="knum">'+inProgress+'</div><div class="ksub">Ongoing</div></div>'
+    +'<div class="kcard kc-r"><div class="klbl">Not Started</div><div class="knum">'+notStarted+'</div><div class="ksub">Pending</div></div></div>'
+    +'<div class="card" style="margin-bottom:16px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    +'<div class="ctitle" style="margin-bottom:0">Overall Portfolio Progress</div>'
+    +'<div style="font-size:20px;font-weight:800;color:#4a7ec7">'+avgPct+'%</div></div>'
+    +'<div style="background:#f0f3f8;border-radius:10px;height:12px;overflow:hidden">'
+    +'<div style="background:linear-gradient(90deg,#4a7ec7,#3aaa5e);height:100%;width:'+avgPct+'%;border-radius:10px"></div></div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--muted)">'
+    +'<span>Initial Connect (33%)</span><span>Trials Connect (66%)</span><span>Business Connect (100%)</span></div></div>'
+    +'<div class="card"><div class="ctitle">Account-wise Progress</div>'+accsHtml+'</div>';
 }
-
-
 
 function pgAdminProgress(){
   if(!isA())return'<div style="text-align:center;padding:40px;color:var(--muted)">Access denied</div>';
   const all=enAccs();
   const pts=DB.users.filter(u=>u.role==='partner');
-  const stages=['Initial connect','Trials connect','Business connect'];
   const stageColors={'Initial connect':'#e6a817','Trials connect':'#4a7ec7','Business connect':'#3aaa5e'};
   const stagePct={'Initial connect':33,'Trials connect':66,'Business connect':100};
 
-  // ── Per Alliance Manager section ──
   const amRows=pts.map(p=>{
     const pa=all.filter(a=>a.assignedPartnerId===p.id);
     if(!pa.length)return null;
-    const done=pa.filter(a=>a.am?.connectStage==='Business connect').length;
-    const inProg=pa.filter(a=>a.am?.connectStage&&a.am.connectStage!=='Business connect').length;
-    const notStarted=pa.filter(a=>!a.am?.connectStage).length;
-    const avg=pa.length?Math.round(pa.reduce((s,a)=>s+(stagePct[a.am?.connectStage]||0),0)/pa.length):0;
+    const done=pa.filter(a=>a.am&&a.am.connectStage==='Business connect').length;
+    const inProg=pa.filter(a=>a.am&&a.am.connectStage&&a.am.connectStage!=='Business connect').length;
+    const notStarted=pa.filter(a=>!a.am||!a.am.connectStage).length;
+    const avg=pa.length?Math.round(pa.reduce((s,a)=>s+(stagePct[a.am&&a.am.connectStage]||0),0)/pa.length):0;
     return{p,pa,done,inProg,notStarted,avg};
   }).filter(Boolean);
 
-  // ── Company wise section ──
   const companyRows=all.map(a=>({
-    name:a.companyName,
-    group:a.accountGroup,
-    am:a.partnerName,
-    stage:a.am?.connectStage||'',
-    pct:stagePct[a.am?.connectStage]||0,
-    od:a.amOD,
-    status:a.overallStatus,
+    name:a.companyName,group:a.accountGroup,am:a.partnerName,
+    stage:a.am?a.am.connectStage:'',
+    pct:a.am?stagePct[a.am.connectStage]||0:0,
+    od:a.amOD,status:a.overallStatus,
   }));
 
-  // Download CSV function
-  const csvBtn=`<button class="abtn" style="background:#3aaa5e;color:#fff;padding:7px 16px;margin-bottom:16px" onclick="dlProgressCSV()">↓ Download Progress Report CSV</button>`;
+  function buildAMCard(row){
+    const{p,pa,done,inProg,notStarted,avg}=row;
+    let accs='';
+    pa.forEach(function(a){
+      const cs=a.am?a.am.connectStage:'';
+      const pct=stagePct[cs]||0;
+      const col=stageColors[cs]||'#dde3ec';
+      const odTag=a.amOD>0?'<span class="oday" style="font-size:9px">+'+a.amOD+'d</span>':'<span style="color:#3aaa5e;font-weight:600">'+pct+'%</span>';
+      accs+='<div style="padding:7px 9px;border:1px solid '+(a.amOD>0?'#f5b7b1':'var(--border)')+';border-radius:7px;background:'+(a.amOD>0?'#fff8f8':'#fafbfe')+'">'
+        +'<div style="font-size:11px;font-weight:700;margin-bottom:4px">'+a.companyName+'</div>'
+        +'<div style="background:#f0f3f8;border-radius:5px;height:5px;overflow:hidden;margin-bottom:4px">'
+        +'<div style="background:'+col+';height:100%;width:'+pct+'%;border-radius:5px"></div></div>'
+        +'<div style="display:flex;justify-content:space-between;font-size:10px">'
+        +'<span style="color:'+col+';font-weight:600">'+(cs||'Not started')+'</span>'+odTag
+        +'</div></div>';
+    });
+    const initials=p.name.split(' ').map(function(w){return w[0];}).join('').slice(0,2);
+    return '<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #f0f3f8">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<div class="av avp" style="width:32px;height:32px;font-size:11px">'+initials+'</div>'
+      +'<div><div style="font-size:13px;font-weight:700">'+p.name+'</div>'
+      +'<div style="font-size:11px;color:var(--muted)">'+pa.length+' accounts &middot; '+done+' completed &middot; '+inProg+' in progress &middot; '+notStarted+' not started</div></div></div>'
+      +'<div style="font-size:22px;font-weight:800;color:#4a7ec7">'+avg+'%</div></div>'
+      +'<div style="background:#f0f3f8;border-radius:8px;height:10px;overflow:hidden;margin-bottom:8px">'
+      +'<div style="background:linear-gradient(90deg,#4a7ec7,#3aaa5e);height:100%;width:'+avg+'%;border-radius:8px"></div></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:7px">'+accs+'</div></div>';
+  }
 
-  return`
-<div style="font-size:17px;font-weight:700;margin-bottom:3px">Progress Report</div>
-<div style="font-size:12px;color:var(--muted);margin-bottom:14px">Company-wise and Alliance Manager-based progress overview.</div>
-${csvBtn}
+  function buildCompanyRow(r){
+    const col=stageColors[r.stage]||'var(--muted)';
+    const bg=stageColors[r.stage]?(stageColors[r.stage]+'22'):'#f4f6fb';
+    const border=stageColors[r.stage]?(stageColors[r.stage]+'44'):'#dde3ec';
+    const pill=r.status==='red'?'p-red':r.status==='yellow'?'p-yellow':'p-green';
+    const odCell=r.od>0?'<span class="oday">+'+r.od+'d</span>':'<span style="color:#3aaa5e;font-size:11px">OK</span>';
+    return '<tr>'
+      +'<td><strong style="font-size:12px">'+r.name+'</strong></td>'
+      +'<td style="font-size:11px;color:var(--muted)">'+(r.group||'—')+'</td>'
+      +'<td style="font-size:11px">'+r.am+'</td>'
+      +'<td><span style="background:'+bg+';color:'+col+';border:1px solid '+border+';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">'+(r.stage||'Not started')+'</span></td>'
+      +'<td><div style="display:flex;align-items:center;gap:7px">'
+      +'<div style="background:#f0f3f8;border-radius:5px;height:6px;width:80px;overflow:hidden">'
+      +'<div style="background:'+(stageColors[r.stage]||'#dde3ec')+';height:100%;width:'+r.pct+'%;border-radius:5px"></div></div>'
+      +'<span style="font-size:11px;font-weight:700;color:'+col+'">'+r.pct+'%</span></div></td>'
+      +'<td><span class="pill '+pill+'" style="font-size:10px">'+r.status+'</span></td>'
+      +'<td>'+odCell+'</td></tr>';
+  }
 
-<!-- Overall KPIs -->
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
-  <div class="kcard kc-b"><div class="klbl">Total Accounts</div><div class="knum">${all.length}</div></div>
-  <div class="kcard kc-g"><div class="klbl">Business Connect</div><div class="knum">${all.filter(a=>a.am?.connectStage==='Business connect').length}</div><div class="ksub">Completed</div></div>
-  <div class="kcard kc-y"><div class="klbl">In Progress</div><div class="knum">${all.filter(a=>a.am?.connectStage&&a.am.connectStage!=='Business connect').length}</div></div>
-  <div class="kcard kc-r"><div class="klbl">Not Started</div><div class="knum">${all.filter(a=>!a.am?.connectStage).length}</div></div>
-</div>
+  const totalAcc=all.length;
+  const bizDone=all.filter(a=>a.am&&a.am.connectStage==='Business connect').length;
+  const inProg=all.filter(a=>a.am&&a.am.connectStage&&a.am.connectStage!=='Business connect').length;
+  const notStarted=all.filter(a=>!a.am||!a.am.connectStage).length;
 
-<!-- Alliance Manager wise progress -->
-<div class="card" style="margin-bottom:16px">
-  <div class="ctitle">Alliance Manager — Progress Summary</div>
-  ${amRows.map(({p,pa,done,inProg,notStarted,avg})=>`
-  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #f0f3f8">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="av avp" style="width:32px;height:32px;font-size:11px">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-        <div><div style="font-size:13px;font-weight:700">${p.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${pa.length} accounts · ${done} completed · ${inProg} in progress · ${notStarted} not started</div></div>
-      </div>
-      <div style="font-size:22px;font-weight:800;color:#4a7ec7">${avg}%</div>
-    </div>
-    <div style="background:#f0f3f8;border-radius:8px;height:10px;overflow:hidden;margin-bottom:8px">
-      <div style="background:linear-gradient(90deg,#4a7ec7,#3aaa5e);height:100%;width:${avg}%;border-radius:8px"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:7px">
-      ${pa.map(a=>{
-        const cs=a.am?.connectStage||'';
-        const pct=stagePct[cs]||0;
-        const col=stageColors[cs]||'#dde3ec';
-        return`<div style="padding:7px 9px;border:1px solid ${a.amOD>0?'#f5b7b1':'var(--border)'};border-radius:7px;background:${a.amOD>0?'#fff8f8':'#fafbfe'}">
-          <div style="font-size:11px;font-weight:700;margin-bottom:4px">${a.companyName}</div>
-          <div style="background:#f0f3f8;border-radius:5px;height:5px;overflow:hidden;margin-bottom:4px">
-            <div style="background:${col};height:100%;width:${pct}%;border-radius:5px"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px">
-            <span style="color:${col};font-weight:600">${cs||'Not started'}</span>
-            ${a.amOD>0?`<span class="oday" style="font-size:9px">+${a.amOD}d</span>`:`<span style="color:#3aaa5e;font-weight:600">${pct}%</span>`}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`).join('')}
-</div>
+  let amHtml='';amRows.forEach(function(r){amHtml+=buildAMCard(r);});
+  let compHtml='';companyRows.forEach(function(r){compHtml+=buildCompanyRow(r);});
 
-<!-- Company wise table -->
-<div class="card">
-  <div class="ctitle">Company-wise Progress Table</div>
-  <div class="tscroll"><table style="min-width:600px">
-    <thead><tr><th>Company</th><th>Group</th><th>Alliance Manager</th><th>Connect Stage</th><th>Progress</th><th>Status</th><th>AM OD</th></tr></thead>
-    <tbody>${companyRows.map(r=>`<tr>
-      <td><strong style="font-size:12px">${r.name}</strong></td>
-      <td style="font-size:11px;color:var(--muted)">${r.group||'—'}</td>
-      <td style="font-size:11px">${r.am}</td>
-      <td><span style="background:${stageColors[r.stage]||'#f4f6fb'}22;color:${stageColors[r.stage]||'var(--muted)'};border:1px solid ${stageColors[r.stage]||'#dde3ec'}44;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${r.stage||'Not started'}</span></td>
-      <td>
-        <div style="display:flex;align-items:center;gap:7px">
-          <div style="background:#f0f3f8;border-radius:5px;height:6px;width:80px;overflow:hidden">
-            <div style="background:${stageColors[r.stage]||'#dde3ec'};height:100%;width:${r.pct}%;border-radius:5px"></div>
-          </div>
-          <span style="font-size:11px;font-weight:700;color:${stageColors[r.stage]||'var(--muted)'}">${r.pct}%</span>
-        </div>
-      </td>
-      <td><span class="pill ${r.status==='red'?'p-red':r.status==='yellow'?'p-yellow':'p-green'}" style="font-size:10px">${r.status}</span></td>
-      <td>${r.od>0?`<span class="oday">+${r.od}d</span>`:'<span style="color:#3aaa5e;font-size:11px">OK</span>'}</td>
-    </tr>`).join('')}
-    </tbody>
-  </table></div>
-</div>`;
+  return '<div style="font-size:17px;font-weight:700;margin-bottom:3px">Progress Report</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:14px">Company-wise and Alliance Manager-based progress overview.</div>'
+    +'<button class="abtn" style="background:#3aaa5e;color:#fff;padding:7px 16px;margin-bottom:16px" onclick="dlProgressCSV()">&#8595; Download Progress Report CSV</button>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">'
+    +'<div class="kcard kc-b"><div class="klbl">Total Accounts</div><div class="knum">'+totalAcc+'</div></div>'
+    +'<div class="kcard kc-g"><div class="klbl">Business Connect</div><div class="knum">'+bizDone+'</div><div class="ksub">Completed</div></div>'
+    +'<div class="kcard kc-y"><div class="klbl">In Progress</div><div class="knum">'+inProg+'</div></div>'
+    +'<div class="kcard kc-r"><div class="klbl">Not Started</div><div class="knum">'+notStarted+'</div></div></div>'
+    +'<div class="card" style="margin-bottom:16px"><div class="ctitle">Alliance Manager — Progress Summary</div>'+amHtml+'</div>'
+    +'<div class="card"><div class="ctitle">Company-wise Progress Table</div>'
+    +'<div class="tscroll"><table style="min-width:600px"><thead><tr><th>Company</th><th>Group</th><th>Alliance Manager</th><th>Connect Stage</th><th>Progress</th><th>Status</th><th>AM OD</th></tr></thead>'
+    +'<tbody>'+compHtml+'</tbody></table></div></div>';
 }
 
 function dlProgressCSV(){
@@ -1040,8 +1004,7 @@ function dlProgressCSV(){
     `"${a.am?.nextConnectDateDM||''}"`,
     `"${a.am?.actionItem||''}"`
   ].join(','));
-  const csv=[hdr,...rows].join('
-');
+  const csv=[hdr,...rows].join('\n');
   const a2=document.createElement('a');
   a2.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a2.download='AgriTrack_ProgressReport.csv';
@@ -1078,7 +1041,7 @@ function mH(){
     const a=id?DB.users.find(x=>x.id===id):null;
     if(!a){c='<div class="mt">User not found</div>';} else {
     const perms=a.permissions||{...DEFAULT_PERMS};
-    c=`<div class="mt" style="color:#7b1fa2">⚙ Permissions — ${a.name}</div>
+    c=`<div class="mt" style="color:#7b1fa2">&#x2699; Permissions — ${a.name}</div>
     <div class="infob">Control exactly what this admin can see and do in the system.</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
       ${Object.entries(PERM_LABELS).map(([key,label])=>`
@@ -1106,7 +1069,7 @@ function mH(){
     const groups=['Navigation','Account Overview','AM Connect','Trials'];
     const groupColors={'Navigation':'#4a7ec7','Account Overview':'#1a5276','AM Connect':'#0a3d6b','Trials':'#145a32'};
     const groupBg={'Navigation':'#e8f0fb','Account Overview':'#e8f0fb','AM Connect':'#bdd7f5','Trials':'#d4f5e2'};
-    c=`<div class="mt" style="color:#1e8449">🔑 Partner Access — ${p.name}</div>
+    c=`<div class="mt" style="color:#1e8449">&#x1F511; Partner Access — ${p.name}</div>
     <div class="infob">Control exactly what this partner can see and do. Default is all enabled.</div>
     <div style="display:flex;gap:7px;margin-bottom:12px">
       <button class="abtn-sm" style="background:#1e8449;color:#fff;padding:4px 10px" onclick="Object.keys(PARTNER_PERM_LABELS).forEach(k=>{const el=document.getElementById('pperm-'+k);if(el)el.checked=true})">Grant All</button>
