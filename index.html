@@ -186,6 +186,42 @@ function gs(id){return DB.stages.find(s=>s.id===id)||{name:'—'};}
 function getAM(aid){return DB.amUpdates.find(a=>a.account_id===aid)||null;}
 function sc(s){return s==='red'?'p-red':s==='yellow'?'p-yellow':'p-green';}
 const isA=()=>CU&&(CU.role==='admin'||CU.role==='superadmin');
+const isSA=()=>CU&&CU.role==='superadmin';
+
+/* Permission check — superadmin has all, admins have what's assigned */
+function can(perm){
+  if(!CU)return false;
+  if(CU.role==='superadmin')return true;
+  if(CU.role==='partner')return false;
+  // admin — check their permissions object
+  const perms=CU.permissions||{};
+  return perms[perm]===true;
+}
+
+/* Default permissions for new admins */
+const DEFAULT_PERMS={
+  viewDashboard:true,
+  viewFollowups:true,
+  manageAccounts:true,
+  viewAnalytics:true,
+  viewReports:true,
+  managePartners:true,
+  manageStages:false,
+  manageDropdowns:false,
+  manageAdmins:false,
+};
+
+const PERM_LABELS={
+  viewDashboard:'View Dashboard',
+  viewFollowups:'View Follow-Up Tracker',
+  manageAccounts:'Manage Account Records',
+  viewAnalytics:'View Analytics',
+  viewReports:'View Reports & Audit',
+  managePartners:'Manage Partners',
+  manageStages:'Manage Pipeline Stages',
+  manageDropdowns:'Manage Dropdown Options',
+  manageAdmins:'Manage Other Admins',
+};
 function sal(m,t,d=3500){AL={msg:m,type:t};R();if(d)setTimeout(()=>{AL=null;R();},d);}
 function R(){if(BOOT)return;document.getElementById('root').innerHTML=CU?appH():authH();if(CU&&PAGE==='analytics')setTimeout(drawCH,60);}
 
@@ -224,7 +260,7 @@ async function bootDB(){
   if(!ex||ex.length===0)await sbSeed();
   await sbLoad();
   const sid=localStorage.getItem('pt_session');
-  if(sid){const u=DB.users.find(x=>x.id===sid&&x.status==='active');if(u)CU=u;}
+  if(sid){const u=DB.users.find(x=>x.id===sid&&x.status==='active');if(u){CU={...u};}}
   BOOT=false;R();
   document.getElementById('sync-badge').style.display='block';
   SB.channel('pt-rt')
@@ -316,8 +352,20 @@ async function rs3(){
 async function doLogout(){CU=null;AL=null;ATAB='login';localStorage.removeItem('pt_session');R();}
 
 function appH(){
-  const tabs=isA()?[{id:'dashboard',label:'Dashboard'},{id:'followups',label:'Follow-Up Tracker'},{id:'account-entry',label:'Account Records'},{id:'analytics',label:'Analytics'},{id:'reports',label:'Reports & Audit'},{id:'admin',label:'Admin Panel'},{id:'myaccount',label:'My Account'}]:[{id:'dashboard',label:'Dashboard'},{id:'my-accounts',label:'My Accounts'},{id:'am-update',label:'Update AM Connect'},{id:'followups',label:'Follow-Up Tracker'},{id:'myaccount',label:'My Account'}];
-  const pgs=isA()?{dashboard:pgDash(),followups:pgFU(),'account-entry':pgAccEntry(),analytics:pgAna(),reports:pgRep(),admin:pgAdmin(),myaccount:pgMyAcc()}:{dashboard:pgDash(),'my-accounts':pgMyAccs(),'am-update':pgAMUpd(),followups:pgFU(),myaccount:pgMyAcc()};
+  let tabs,pgs;
+  if(!isA()){
+    tabs=[{id:'dashboard',label:'Dashboard'},{id:'my-accounts',label:'My Accounts'},{id:'am-update',label:'Update AM Connect'},{id:'followups',label:'Follow-Up Tracker'},{id:'myaccount',label:'My Account'}];
+    pgs={dashboard:pgDash(),'my-accounts':pgMyAccs(),'am-update':pgAMUpd(),followups:pgFU(),myaccount:pgMyAcc()};
+  } else {
+    tabs=[{id:'dashboard',label:'Dashboard'}];
+    pgs={dashboard:pgDash()};
+    if(can('viewFollowups')){tabs.push({id:'followups',label:'Follow-Up Tracker'});pgs.followups=pgFU();}
+    if(can('manageAccounts')){tabs.push({id:'account-entry',label:'Account Records'});pgs['account-entry']=pgAccEntry();}
+    if(can('viewAnalytics')){tabs.push({id:'analytics',label:'Analytics'});pgs.analytics=pgAna();}
+    if(can('viewReports')){tabs.push({id:'reports',label:'Reports & Audit'});pgs.reports=pgRep();}
+    tabs.push({id:'admin',label:'Admin Panel'});pgs.admin=pgAdmin();
+    tabs.push({id:'myaccount',label:'My Account'});pgs.myaccount=pgMyAcc();
+  }
   return`<div class="app">
 <div class="topbar"><h1><div class="live-dot"></div> AgriTrack</h1>
 <div class="topbar-r"><button class="ubtn" onclick="PAGE='myaccount';R()">${CU.name.split(' ').map(w=>w[0]).join('').slice(0,2)} ${CU.name}</button><button class="ubtn" onclick="doLogout()">Sign Out</button></div></div>
@@ -565,29 +613,92 @@ function pgAdmin(){
   if(!isA())return'<div style="text-align:center;padding:40px;color:var(--muted)">Access denied</div>';
   const pts=DB.users.filter(u=>u.role==='partner'),adms=DB.users.filter(u=>u.role==='admin'),dd=DB.dd;
   const ddL={focusArea:'Focus Area',companyType:'Company Type',accountPriority:'Account Priority',opportunityCategory:'Opportunity Category',crop:'Crop',connectStage:'Connect Stage',trialStage:'Trial Stage'};
+
+  // SUPERADMIN PANEL — full control
+  const saPanel=isSA()?`
+  <!-- Admin Accounts Management -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="ctitle" style="margin-bottom:0;color:#7b1fa2">👑 Admin Accounts (${adms.length})</div>
+      <button class="nfbtn" style="background:#7b1fa2" onclick="openM('add-admin')">+ Add Admin</button>
+    </div>
+    <table><thead><tr><th>Name</th><th>Email</th><th>Permissions</th><th>Actions</th></tr></thead>
+    <tbody>${adms.map(a=>{
+      const perms=a.permissions||{};
+      const permCount=Object.values(perms).filter(Boolean).length;
+      const totalPerms=Object.keys(PERM_LABELS).length;
+      return`<tr>
+        <td><div style="display:flex;align-items:center;gap:6px"><div class="av ava" style="width:26px;height:26px;font-size:10px">${a.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div><strong>${a.name}</strong></div></td>
+        <td style="color:var(--muted);font-size:11px">${a.email}</td>
+        <td><span style="background:#f3e5f5;color:#7b1fa2;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">${permCount}/${totalPerms} permissions</span></td>
+        <td><div style="display:flex;gap:4px">
+          <button class="abtn-sm btn-ghost" onclick="openM('edit-admin','${a.id}')">Edit</button>
+          <button class="abtn-sm" style="background:#7b1fa2;color:#fff" onclick="openM('admin-perms','${a.id}')">Permissions</button>
+          <button class="abtn-sm btn-yel" onclick="openM('reset-pw','${a.id}')">Reset PW</button>
+          <button class="abtn-sm btn-red" onclick="delAdm('${a.id}')">Remove</button>
+        </div></td>
+      </tr>`;}).join('')}
+    </tbody></table>
+  </div>`:''
+
+  // PARTNER ACCOUNTS — visible to admin if they have managePartners
+  const partnerPanel=can('managePartners')?`
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="ctitle" style="margin-bottom:0">Partner Accounts (${pts.length})</div>
+      <button class="nfbtn" onclick="openM('add-partner')">+ Add Partner</button>
+    </div>
+    <table><thead><tr><th>Name</th><th>Email</th><th>Accounts</th><th>Actions</th></tr></thead>
+    <tbody>${pts.map(p=>{const cnt=DB.accounts.filter(a=>a.assignedPartnerId===p.id).length;return`<tr>
+      <td><div style="display:flex;align-items:center;gap:6px"><div class="av avp" style="width:26px;height:26px;font-size:10px">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div><strong>${p.name}</strong></div></td>
+      <td style="color:var(--muted);font-size:11px">${p.email}</td>
+      <td style="font-size:11px;color:#4a7ec7;font-weight:600">${cnt}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="abtn-sm btn-ghost" onclick="openM('edit-partner','${p.id}')">Edit</button>
+        <button class="abtn-sm btn-yel" onclick="openM('reset-pw','${p.id}')">Reset PW</button>
+        <button class="abtn-sm btn-red" onclick="delPart('${p.id}')">Remove</button>
+      </div></td>
+    </tr>`;}).join('')}</tbody></table>
+  </div>`:'<div class="card" style="margin-bottom:12px;border-color:#fde8e8"><div style="padding:16px;text-align:center;color:#e74c3c;font-size:12px">⛔ You do not have permission to manage partners</div></div>';
+
+  // PENDING SIGNUPS
+  const pendingPanel=DB.pendingSignups.length&&can('managePartners')?`
+  <div class="card" style="border-color:#f5d47a;margin-bottom:12px">
+    <div class="ctitle" style="color:#b8860b">Pending Approvals (${DB.pendingSignups.length})</div>
+    ${DB.pendingSignups.map(p=>`<div class="prow">
+      <div class="av avp">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:600">${p.name}</div><div style="font-size:10px;color:var(--muted)">${p.email} · ${p.requested_at}</div>${p.note?`<div style="font-size:11px">${p.note}</div>`:''}</div>
+      <div style="display:flex;gap:4px">
+        <button class="abtn-sm btn-grn" onclick="approveP('${p.id}')">Approve</button>
+        <button class="abtn-sm btn-red" onclick="rejectP('${p.id}')">Reject</button>
+      </div>
+    </div>`).join('')}
+  </div>`:'';
+
+  // PIPELINE STAGES
+  const stagesPanel=can('manageStages')?`
+  <div class="card" style="margin-bottom:12px"><div class="ctitle">Pipeline Stages</div>
+    <table><thead><tr><th>#</th><th>Name</th><th></th></tr></thead>
+    <tbody>${DB.stages.map((s,i)=>`<tr><td style="color:var(--muted)">${i+1}</td><td><strong>${s.name}</strong></td>
+      <td><div style="display:flex;gap:4px"><button class="abtn-sm btn-ghost" onclick="openM('edit-stage','${s.id}')">Edit</button><button class="abtn-sm btn-red" onclick="delStg('${s.id}')">Del</button></div></td>
+    </tr>`).join('')}</tbody></table>
+    <button class="abtn-sm btn-blue" style="margin-top:9px;padding:4px 10px" onclick="openM('add-stage')">+ Add Stage</button>
+  </div>`:`<div class="card" style="margin-bottom:12px;border-color:#fde8e8"><div style="padding:16px;text-align:center;color:#e74c3c;font-size:12px">⛔ No permission to manage pipeline stages</div></div>`;
+
+  // DROPDOWN OPTIONS
+  const ddPanel=can('manageDropdowns')?`
+  <div class="card"><div class="ctitle">Dropdown Options Manager</div>
+    ${Object.keys(dd).map(key=>`<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:8px;padding:10px">
+      <div style="font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:6px">${ddL[key]||key}</div>
+      <div style="display:flex;flex-wrap:wrap;min-height:26px;margin-bottom:6px">${(dd[key]||[]).map((o,i)=>`<span class="dtag">${o}<button class="dtag-x" onclick="rmDD('${key}',${i})">×</button></span>`).join('')}${!dd[key]?.length?'<span style="font-size:11px;color:var(--muted)">No options yet</span>':''}</div>
+      <div style="display:flex;gap:5px"><input type="text" id="dd-${key}" placeholder="New option..." style="flex:1;padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:5px;outline:none"><button class="abtn-sm btn-blue" style="padding:4px 10px;white-space:nowrap" onclick="addDD('${key}')">+ Add</button></div>
+    </div>`).join('')}
+  </div>`:`<div class="card" style="border-color:#fde8e8"><div style="padding:16px;text-align:center;color:#e74c3c;font-size:12px">⛔ No permission to manage dropdown options</div></div>`;
+
   return`<div class="g2">
-<div>
-${DB.pendingSignups.length?`<div class="card" style="border-color:#f5d47a;margin-bottom:12px"><div class="ctitle" style="color:#b8860b">Pending Approvals (${DB.pendingSignups.length})</div>${DB.pendingSignups.map(p=>`<div class="prow"><div class="av avp">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div><div style="flex:1"><div style="font-size:12px;font-weight:600">${p.name}</div><div style="font-size:10px;color:var(--muted)">${p.email} · ${p.requested_at}</div>${p.note?`<div style="font-size:11px">${p.note}</div>`:''}</div><div style="display:flex;gap:4px"><button class="abtn-sm btn-grn" onclick="approveP('${p.id}')">Approve</button><button class="abtn-sm btn-red" onclick="rejectP('${p.id}')">Reject</button></div></div>`).join('')}</div>`:''}
-<div class="card" style="margin-bottom:12px">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="ctitle" style="margin-bottom:0">Partner Accounts (${pts.length})</div><button class="nfbtn" onclick="openM('add-partner')">+ Add Partner</button></div>
-<table><thead><tr><th>Name</th><th>Email</th><th>Accounts</th><th>Actions</th></tr></thead>
-<tbody>${pts.map(p=>{const cnt=DB.accounts.filter(a=>a.assignedPartnerId===p.id).length;return`<tr><td><div style="display:flex;align-items:center;gap:6px"><div class="av avp" style="width:26px;height:26px;font-size:10px">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div><strong>${p.name}</strong></div></td><td style="color:var(--muted);font-size:11px">${p.email}</td><td style="font-size:11px;color:#4a7ec7;font-weight:600">${cnt}</td><td><div style="display:flex;gap:4px"><button class="abtn-sm btn-ghost" onclick="openM('edit-partner','${p.id}')">Edit</button><button class="abtn-sm btn-yel" onclick="openM('reset-pw','${p.id}')">Reset PW</button><button class="abtn-sm btn-red" onclick="delPart('${p.id}')">Remove</button></div></td></tr>`;}).join('')}</tbody></table></div>
-${CU.role==='superadmin'?`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="ctitle" style="margin-bottom:0">Admin Accounts (${adms.length})</div><button class="nfbtn" onclick="openM('add-admin')">+ Add Admin</button></div>
-<table><thead><tr><th>Name</th><th>Email</th><th>Actions</th></tr></thead>
-<tbody>${adms.map(a=>`<tr><td><div style="display:flex;align-items:center;gap:6px"><div class="av ava" style="width:26px;height:26px;font-size:10px">${a.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div><strong>${a.name}</strong></div></td><td style="color:var(--muted);font-size:11px">${a.email}</td><td><div style="display:flex;gap:4px"><button class="abtn-sm btn-ghost" onclick="openM('edit-admin','${a.id}')">Edit</button><button class="abtn-sm btn-yel" onclick="openM('reset-pw','${a.id}')">Reset PW</button><button class="abtn-sm btn-red" onclick="delAdm('${a.id}')">Remove</button></div></td></tr>`).join('')}</tbody></table></div>`:''}
-</div>
-<div>
-<div class="card" style="margin-bottom:12px"><div class="ctitle">Pipeline Stages</div>
-<table><thead><tr><th>#</th><th>Name</th><th></th></tr></thead>
-<tbody>${DB.stages.map((s,i)=>`<tr><td style="color:var(--muted)">${i+1}</td><td><strong>${s.name}</strong></td><td><div style="display:flex;gap:4px"><button class="abtn-sm btn-ghost" onclick="openM('edit-stage','${s.id}')">Edit</button><button class="abtn-sm btn-red" onclick="delStg('${s.id}')">Del</button></div></td></tr>`).join('')}</tbody></table>
-<button class="abtn-sm btn-blue" style="margin-top:9px;padding:4px 10px" onclick="openM('add-stage')">+ Add Stage</button></div>
-<div class="card"><div class="ctitle">Dropdown Options Manager</div>
-${Object.keys(dd).map(key=>`<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:8px;padding:10px">
-<div style="font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:6px">${ddL[key]||key}</div>
-<div style="display:flex;flex-wrap:wrap;min-height:26px;margin-bottom:6px">${(dd[key]||[]).map((o,i)=>`<span class="dtag">${o}<button class="dtag-x" onclick="rmDD('${key}',${i})">×</button></span>`).join('')}${!dd[key]?.length?'<span style="font-size:11px;color:var(--muted)">No options yet</span>':''}</div>
-<div style="display:flex;gap:5px"><input type="text" id="dd-${key}" placeholder="New option..." style="flex:1;padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:5px;outline:none"><button class="abtn-sm btn-blue" style="padding:4px 10px;white-space:nowrap" onclick="addDD('${key}')">+ Add</button></div>
-</div>`).join('')}</div>
-</div></div>`;}
+<div>${pendingPanel}${saPanel}${partnerPanel}</div>
+<div>${stagesPanel}${ddPanel}</div>
+</div>`;}
 
 function pgMyAcc(){return`<div class="g2">
 <div class="card"><div class="ctitle">Profile</div>
@@ -605,7 +716,36 @@ function mH(){
   const{type,id}=MODAL;let c='';
   const mfi=(l,iid,v='',t='text')=>`<div class="fg"><label class="fl">${l}</label><input type="${t}" id="${iid}" value="${v}"></div>`;
   if(type==='add-partner'||type==='edit-partner'){const p=id?DB.users.find(x=>x.id===id):null;c=`<div class="mt">${id?'Edit Partner':'Add Partner'}</div>${mfi('Full Name *','mn',p?.name||'')}${mfi('Email *','me',p?.email||'','email')}${!id?mfi('Password *','mp','','password'):''}<div class="ma"><button class="abtn-sm btn-ghost" onclick="closeM()">Cancel</button><button class="abtn abtn-blue" style="padding:6px 16px" onclick="savePart('${id||''}')">Save</button></div>`;}
-  else if(type==='add-admin'||type==='edit-admin'){const a=id?DB.users.find(x=>x.id===id):null;c=`<div class="mt">${id?'Edit Admin':'Add Admin'}</div>${mfi('Full Name *','mn',a?.name||'')}${mfi('Email *','me',a?.email||'','email')}${!id?mfi('Password *','mp','','password'):''}<div class="ma"><button class="abtn-sm btn-ghost" onclick="closeM()">Cancel</button><button class="abtn abtn-blue" style="padding:6px 16px" onclick="saveAdm('${id||''}')">Save</button></div>`;}
+  else if(type==='add-admin'||type==='edit-admin'){
+    const a=id?DB.users.find(x=>x.id===id):null;
+    c=`<div class="mt">${id?'Edit Admin':'Add Admin'}</div>
+    ${mfi('Full Name *','mn',a?.name||'')}
+    ${mfi('Email *','me',a?.email||'','email')}
+    ${!id?mfi('Password *','mp','','password'):''}
+    <div class="ma"><button class="abtn-sm btn-ghost" onclick="closeM()">Cancel</button><button class="abtn abtn-blue" style="padding:6px 16px" onclick="saveAdm('${id||''}')">Save</button></div>`;
+  }
+  else if(type==='admin-perms'){
+    const a=id?DB.users.find(x=>x.id===id):null;
+    if(!a){c='<div class="mt">User not found</div>';} else {
+    const perms=a.permissions||{...DEFAULT_PERMS};
+    c=`<div class="mt" style="color:#7b1fa2">⚙ Permissions — ${a.name}</div>
+    <div class="infob">Control exactly what this admin can see and do in the system.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      ${Object.entries(PERM_LABELS).map(([key,label])=>`
+      <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:${perms[key]?'#f3e5f5':'#fff'}">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#1a1a2e">${label}</div>
+          <div style="font-size:10px;color:var(--muted)">${key==='viewDashboard'?'Main dashboard with KPIs and filters':key==='viewFollowups'?'Follow-up tracker and account table':key==='manageAccounts'?'Create, edit and delete account records':key==='viewAnalytics'?'Charts and partner activity summary':key==='viewReports'?'Report builder and audit log':key==='managePartners'?'Add, edit, remove partner users':key==='manageStages'?'Add, edit, delete pipeline stages':key==='manageDropdowns'?'Manage dropdown options in forms':'Create and manage other admin accounts'}</div>
+        </div>
+        <input type="checkbox" id="perm-${key}" ${perms[key]?'checked':''} style="width:18px;height:18px;accent-color:#7b1fa2;cursor:pointer">
+      </label>`).join('')}
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:4px">
+      <button class="abtn-sm" style="background:#7b1fa2;color:#fff;padding:4px 10px" onclick="Object.keys(PERM_LABELS).forEach(k=>{const el=document.getElementById('perm-'+k);if(el)el.checked=true})">Grant All</button>
+      <button class="abtn-sm btn-ghost" style="padding:4px 10px" onclick="Object.keys(PERM_LABELS).forEach(k=>{const el=document.getElementById('perm-'+k);if(el)el.checked=false})">Revoke All</button>
+    </div>
+    <div class="ma"><button class="abtn-sm btn-ghost" onclick="closeM()">Cancel</button><button class="abtn" style="background:#7b1fa2;color:#fff;padding:6px 16px" onclick="savePerms('${id}')">Save Permissions</button></div>`;}
+  }
   else if(type==='add-stage'||type==='edit-stage'){const s=id?DB.stages.find(x=>x.id===id):null;c=`<div class="mt">${id?'Edit Stage':'Add Stage'}</div>${mfi('Stage Name *','mn',s?.name||'')}<div class="ma"><button class="abtn-sm btn-ghost" onclick="closeM()">Cancel</button><button class="abtn abtn-blue" style="padding:6px 16px" onclick="saveStg('${id||''}')">Save</button></div>`;}
   else if(type==='reset-pw'){const u=DB.users.find(x=>x.id===id);c=`<div class="mt">Reset Password — ${u?.name||''}</div><div class="infob">Set a temporary password.</div>${mfi('New Password *','mnp','','password')}${mfi('Confirm *','mcp','','password')}<div class="ma"><button class="abtn-sm btn-ghost" onclick="closeM()">Cancel</button><button class="abtn-sm btn-yel" style="padding:4px 12px" onclick="adminRP('${id}')">Reset</button></div>`;}
   else if(type==='schedule-meeting'){c=`<div class="mt">Schedule Meeting</div><div class="fg2"><div class="fg"><label class="fl">Account</label><select id="sm-co"><option value="">Select...</option>${DB.accounts.map(a=>`<option value="${a.id}">${a.companyName}</option>`).join('')}</select></div><div class="fg"><label class="fl">Meeting Date</label><input type="date" id="sm-date"></div><div class="fg"><label class="fl">Connect Type</label><select id="sm-type">${(DB.dd.connectStage||[]).map(o=>`<option>${o}</option>`).join('')}</select></div><div class="fg"><label class="fl">Partner</label><select id="sm-pa">${DB.users.filter(u=>u.role==='partner').map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select></div></div><div class="fg"><label class="fl">Notes</label><textarea id="sm-notes"></textarea></div><div class="ma"><button class="abtn-sm btn-ghost" onclick="closeM()">Cancel</button><button class="abtn abtn-orange" style="padding:6px 16px" onclick="closeM();sal('Meeting scheduled!','as')">Schedule</button></div>`;}
@@ -652,46 +792,27 @@ async function adminRP(id){const np=document.getElementById('mnp')?.value||'',cp
 async function saveProf(){const n=(document.getElementById('men')?.value||'').trim(),e=(document.getElementById('mee')?.value||'').trim();if(!n||!e)return sal('Fields required','ae');if(DB.users.find(u=>u.email===e&&u.id!==CU.id))return sal('Email in use','ae');await SB.from('pt_users').update({name:n,email:e}).eq('id',CU.id);CU.name=n;CU.email=e;sal('Profile updated!','as');}
 async function changePw(){const cur=document.getElementById('mec')?.value||'',np=document.getElementById('men2')?.value||'',cp=document.getElementById('mecf')?.value||'';if(cur!==CU.password)return sal('Current password incorrect','ae');if(np.length<8)return sal('Min 8 chars','ae');if(np!==cp)return sal('Passwords do not match','ae');await SB.from('pt_users').update({password:np}).eq('id',CU.id);CU.password=np;sal('Password updated!','as');}
 async function savePart(id){const n=(document.getElementById('mn')?.value||'').trim(),e=(document.getElementById('me')?.value||'').trim(),p=id?null:document.getElementById('mp')?.value||'';if(!n||!e||(!id&&!p))return sal('Fields required','ae');if(!id&&p.length<8)return sal('Min 8 chars','ae');if(id){await SB.from('pt_users').update({name:n,email:e}).eq('id',id);}else{if(DB.users.find(u=>u.email===e))return sal('Email in use','ae');await SB.from('pt_users').insert([{id:uid(),name:n,email:e,password:p,role:'partner',status:'active'}]);}closeM();sal('Partner saved!','as');}
-async function delPart(id){
-  if(id===CU.id)return sal("Can't remove yourself",'ae');
-  const assigned=DB.accounts.filter(a=>a.assignedPartnerId===id).length;
-  if(assigned>0)return sal(`Cannot remove — this partner has ${assigned} account(s) assigned. Reassign them first.`,'ae',6000);
-  // Also delete any am_updates by this partner first (foreign key)
-  await SB.from('pt_am_updates').delete().eq('partner_id',id);
-  const{error}=await SB.from('pt_users').delete().eq('id',id);
-  if(error){
-    console.error('delPart error:',error);
-    return sal('Delete failed: '+error.message,'ae',7000);
-  }
-  // Force reload users from Supabase
-  const{data}=await SB.from('pt_users').select('*');
-  if(data)DB.users=data;
-  sal('Partner removed','as');
+async function delPart(id){if(id===CU.id)return sal("Can't remove yourself",'ae');await SB.from('pt_users').delete().eq('id',id);sal('Partner removed','as');}
+async function savePerms(id){
+  const perms={};
+  Object.keys(PERM_LABELS).forEach(key=>{
+    const el=document.getElementById('perm-'+key);
+    perms[key]=el?el.checked:false;
+  });
+  const{error}=await SB.from('pt_users').update({permissions:perms}).eq('id',id);
+  if(error)return sal('Error saving permissions: '+error.message,'ae');
+  // Update local DB
+  const u=DB.users.find(x=>x.id===id);
+  if(u)u.permissions=perms;
+  // If editing current user, update CU
+  if(CU.id===id)CU.permissions=perms;
+  closeM();sal('Permissions updated!','as');
 }
-async function saveAdm(id){const n=(document.getElementById('mn')?.value||'').trim(),e=(document.getElementById('me')?.value||'').trim(),p=id?null:document.getElementById('mp')?.value||'';if(!n||!e||(!id&&!p))return sal('Fields required','ae');if(!id&&p.length<8)return sal('Min 8 chars','ae');if(id){await SB.from('pt_users').update({name:n,email:e}).eq('id',id);}else{if(DB.users.find(u=>u.email===e))return sal('Email in use','ae');await SB.from('pt_users').insert([{id:uid(),name:n,email:e,password:p,role:'admin',status:'active'}]);}closeM();sal('Admin saved!','as');}
-async function delAdm(id){
-  if(id===CU.id)return sal("Can't remove yourself",'ae');
-  const{error}=await SB.from('pt_users').delete().eq('id',id);
-  if(error){
-    console.error('delAdm error:',error);
-    return sal('Delete failed: '+error.message,'ae',7000);
-  }
-  // Force reload users from Supabase
-  const{data}=await SB.from('pt_users').select('*');
-  if(data)DB.users=data;
-  sal('Admin removed','as');
-}
+
+async function saveAdm(id){const n=(document.getElementById('mn')?.value||'').trim(),e=(document.getElementById('me')?.value||'').trim(),p=id?null:document.getElementById('mp')?.value||'';if(!n||!e||(!id&&!p))return sal('Fields required','ae');if(!id&&p.length<8)return sal('Min 8 chars','ae');if(id){await SB.from('pt_users').update({name:n,email:e}).eq('id',id);}else{if(DB.users.find(u=>u.email===e))return sal('Email in use','ae');await SB.from('pt_users').insert([{id:uid(),name:n,email:e,password:p,role:'admin',status:'active',permissions:{...DEFAULT_PERMS}}]);}closeM();sal('Admin saved!','as');}
+async function delAdm(id){if(id===CU.id)return sal("Can't remove yourself",'ae');await SB.from('pt_users').delete().eq('id',id);sal('Admin removed','as');}
 async function saveStg(id){const n=(document.getElementById('mn')?.value||'').trim();if(!n)return sal('Stage name required','ae');if(id){await SB.from('pt_stages').update({name:n}).eq('id',id);}else{await SB.from('pt_stages').insert([{id:uid(),name:n,sort_order:DB.stages.length+1}]);}closeM();sal('Stage saved!','as');}
-async function delStg(id){
-  const inUse=DB.accounts.filter(a=>a.stageId===id).length;
-  if(inUse>0)return sal(`Cannot delete — ${inUse} account(s) are using this stage. Change their stage first.`,'ae',6000);
-  const{error}=await SB.from('pt_stages').delete().eq('id',id);
-  if(error)return sal('Error: '+error.message,'ae');
-  // Force reload stages from Supabase
-  const{data}=await SB.from('pt_stages').select('*').order('sort_order',{ascending:true});
-  if(data)DB.stages=data.map(r=>({id:r.id,name:r.name}));
-  sal('Stage deleted','as');
-}
+async function delStg(id){await SB.from('pt_stages').delete().eq('id',id);sal('Stage deleted','as');}
 async function addDD(key){const inp=document.getElementById('dd-'+key);if(!inp?.value.trim())return;if(!DB.dd[key])DB.dd[key]=[];if(!DB.dd[key].includes(inp.value.trim()))DB.dd[key].push(inp.value.trim());await SB.from('pt_settings').upsert([{key:'ddOptions',value:DB.dd}]);inp.value='';sal('Option added!','as');}
 async function rmDD(key,i){DB.dd[key].splice(i,1);await SB.from('pt_settings').upsert([{key:'ddOptions',value:DB.dd}]);sal('Option removed','as');}
 
