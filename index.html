@@ -122,8 +122,8 @@ textarea{resize:vertical;min-height:60px}
 </div>
 <div id="sync-badge" class="sync-badge">● Live</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script>
 const SUPABASE_URL  = 'https://mfvgfprqiayjnasxqgcf.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mdmdmcHJxaWF5am5hc3hxZ2NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0ODIwMDMsImV4cCI6MjA5MjA1ODAwM30.MGfBr6lBfjVvJ9fc7xT62BLQzdryVBPALsqM3MwFEvA';
@@ -822,7 +822,7 @@ ${secs.map(sec=>`<div style="margin-bottom:12px"><div style="font-size:10px;font
 <tbody>${DB.auditLog.slice(0,50).map(l=>`<tr><td style="font-size:11px;color:var(--muted)">${l.ts}</td><td><strong style="font-size:11px">${l.user}</strong></td><td><span style="background:${l.role==='admin'?'#e8f0fb':l.role==='superadmin'?'#f3e5f5':'#eafaf1'};color:${l.role==='admin'?'#1a5276':l.role==='superadmin'?'#7b1fa2':'#145a32'};padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">${displayRole(l.role)}</span></td><td style="font-size:11px">${l.action}</td><td style="font-size:11px">${l.record}</td><td style="font-size:11px;color:var(--muted)">${l.field}</td><td style="font-size:11px;color:#e74c3c">${l.oldv||'—'}</td><td style="font-size:11px;color:#3aaa5e">${l.newv}</td></tr>`).join('')}</tbody></table></div></div>`;}
 
 // ═══════════════════════════════════════════════════════════════════
-// EXCEL REPORT GENERATION
+// EXCEL REPORT GENERATION — using ExcelJS with full logo embedding
 // ═══════════════════════════════════════════════════════════════════
 
 function getReportDateRange(){
@@ -833,8 +833,6 @@ function getReportDateRange(){
 
 function inDateRange(tsStr,from,to){
   if(!from&&!to)return true;
-  // tsStr format: "20/4/2026, 5:40:17 pm" (locale string from new Date().toLocaleString('en-IN'))
-  // Parse it
   try{
     const parts=tsStr.split(',')[0].trim().split('/');
     if(parts.length!==3)return true;
@@ -846,195 +844,229 @@ function inDateRange(tsStr,from,to){
   }catch(e){return true;}
 }
 
-function buildReportHeader(title){
-  // Returns array of rows [row1, row2, ...] with header info
+/* Build an Excel workbook with String Bio branding and logo embedded */
+async function buildBrandedWorkbook(title,columnHeaders,dataRows,colWidths,sheetName){
+  const wb=new ExcelJS.Workbook();
+  wb.creator='AgriTrack';
+  wb.created=new Date();
+  
+  const ws=wb.addWorksheet(sheetName||'Report',{
+    properties:{tabColor:{argb:'FF4A7EC7'}},
+    views:[{state:'normal',zoomScale:100}],
+  });
+  
+  // Add logo image
+  const logoImgId=wb.addImage({
+    base64:EXCEL_LOGO,
+    extension:'png'
+  });
+  // Logo at top-left spanning A1:B4 area
+  ws.addImage(logoImgId,{
+    tl:{col:0,row:0},
+    ext:{width:180,height:58},
+    editAs:'oneCell'
+  });
+  
+  // Row heights to accommodate logo
+  ws.getRow(1).height=18;
+  ws.getRow(2).height=18;
+  ws.getRow(3).height=18;
+  ws.getRow(4).height=6;  // small spacer
+  
+  // Total columns span
+  const totalCols=Math.max(columnHeaders.length,8);
+  const lastColLetter=String.fromCharCode(65+totalCols-1);
+  
+  // Row 1: Company name (merged C1 to end, logo in A-B)
+  ws.mergeCells('C1:'+lastColLetter+'1');
+  const companyCell=ws.getCell('C1');
+  companyCell.value='String Bio Pvt Ltd';
+  companyCell.font={name:'Arial',bold:true,size:22,color:{argb:'FF4A7EC7'}};
+  companyCell.alignment={horizontal:'center',vertical:'middle'};
+  companyCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFFFF'}};
+  
+  // Row 2: Subtitle
+  ws.mergeCells('C2:'+lastColLetter+'2');
+  const subCell=ws.getCell('C2');
+  subCell.value='AgriTrack — Live Alliance Manager Dashboard';
+  subCell.font={name:'Arial',bold:true,size:12,color:{argb:'FF1A5276'}};
+  subCell.alignment={horizontal:'center',vertical:'middle'};
+  
+  // Row 3: Report title
+  ws.mergeCells('C3:'+lastColLetter+'3');
+  const titleCell=ws.getCell('C3');
+  titleCell.value=title;
+  titleCell.font={name:'Arial',bold:true,size:14,color:{argb:'FF2D3748'}};
+  titleCell.alignment={horizontal:'center',vertical:'middle'};
+  titleCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F6FB'}};
+  
+  // Row 5-8: Metadata
   const now=new Date().toLocaleString('en-IN');
   const dr=getReportDateRange();
-  const drStr=(dr.from||dr.to)?`${dr.from||'Beginning'} to ${dr.to||'Today'}`:'All data';
-  return[
-    ['String Bio Pvt Ltd'],
-    ['AgriTrack — Live Alliance Manager Dashboard'],
-    [title],
-    [],
+  const drStr=(dr.from||dr.to)?(dr.from||'Beginning')+' to '+(dr.to||'Today'):'All data';
+  
+  const meta=[
     ['Downloaded by:',CU.name+' ('+displayRole(CU.role)+')'],
     ['Downloaded on:',now],
     ['Date range:',drStr],
-    ['Total records:','']   // will be filled in later
+    ['Total records:',dataRows.length]
   ];
-}
-
-function applyHeaderStyles(ws,titleRows,dataStart){
-  // titleRows = number of rows used for title/metadata
-  // dataStart = row index (0-based) where data headers start
-  if(!ws['!merges'])ws['!merges']=[];
+  meta.forEach((row,idx)=>{
+    const r=5+idx;
+    ws.getCell('A'+r).value=row[0];
+    ws.getCell('A'+r).font={name:'Arial',bold:true,size:10,color:{argb:'FF7A8499'}};
+    ws.getCell('B'+r).value=row[1];
+    ws.getCell('B'+r).font={name:'Arial',size:10,color:{argb:'FF2D3748'}};
+    ws.getRow(r).height=16;
+  });
   
-  // Merge company name, subtitle, title across wider columns
-  ws['!merges'].push({s:{r:0,c:0},e:{r:0,c:7}});  // String Bio
-  ws['!merges'].push({s:{r:1,c:0},e:{r:1,c:7}});  // subtitle  
-  ws['!merges'].push({s:{r:2,c:0},e:{r:2,c:7}});  // report title
-
-  // Style company name
-  if(ws['A1']){
-    ws['A1'].s={
-      font:{name:'Arial',bold:true,sz:20,color:{rgb:'4A7EC7'}},
-      alignment:{horizontal:'center',vertical:'center'},
-      fill:{fgColor:{rgb:'FFFFFF'}}
+  // Spacer row
+  ws.getRow(9).height=10;
+  
+  // Row 10: Column headers (bold white on blue)
+  const hdrRow=ws.getRow(10);
+  columnHeaders.forEach((h,idx)=>{
+    const cell=hdrRow.getCell(idx+1);
+    cell.value=h;
+    cell.font={name:'Arial',bold:true,size:11,color:{argb:'FFFFFFFF'}};
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4A7EC7'}};
+    cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+    cell.border={
+      top:{style:'thin',color:{argb:'FF2D3748'}},
+      bottom:{style:'thin',color:{argb:'FF2D3748'}},
+      left:{style:'thin',color:{argb:'FF2D3748'}},
+      right:{style:'thin',color:{argb:'FF2D3748'}}
     };
-  }
-  if(ws['A2']){
-    ws['A2'].s={
-      font:{name:'Arial',bold:true,sz:12,color:{rgb:'1A5276'}},
-      alignment:{horizontal:'center'}
-    };
-  }
-  if(ws['A3']){
-    ws['A3'].s={
-      font:{name:'Arial',bold:true,sz:14,color:{rgb:'2D3748'}},
-      alignment:{horizontal:'center'},
-      fill:{fgColor:{rgb:'F4F6FB'}}
-    };
-  }
-  // Metadata rows  
-  for(let r=4;r<=7;r++){
-    const c0=XLSX.utils.encode_cell({r,c:0});
-    const c1=XLSX.utils.encode_cell({r,c:1});
-    if(ws[c0])ws[c0].s={font:{name:'Arial',bold:true,sz:10,color:{rgb:'7A8499'}}};
-    if(ws[c1])ws[c1].s={font:{name:'Arial',sz:10}};
-  }
-  // Data header row (bold white on blue)
-  const hdrRow=dataStart;
-  const range=XLSX.utils.decode_range(ws['!ref']);
-  for(let c=range.s.c;c<=range.e.c;c++){
-    const addr=XLSX.utils.encode_cell({r:hdrRow,c});
-    if(ws[addr]){
-      ws[addr].s={
-        font:{name:'Arial',bold:true,sz:11,color:{rgb:'FFFFFF'}},
-        fill:{fgColor:{rgb:'4A7EC7'}},
-        alignment:{horizontal:'center',vertical:'center',wrapText:true},
-        border:{
-          top:{style:'thin',color:{rgb:'2D3748'}},
-          bottom:{style:'thin',color:{rgb:'2D3748'}},
-          left:{style:'thin',color:{rgb:'2D3748'}},
-          right:{style:'thin',color:{rgb:'2D3748'}}
-        }
+  });
+  hdrRow.height=28;
+  
+  // Data rows with alternating colors
+  dataRows.forEach((row,idx)=>{
+    const r=11+idx;
+    const bgColor=idx%2===0?'FFF4F6FB':'FFFFFFFF';
+    row.forEach((val,colIdx)=>{
+      const cell=ws.getRow(r).getCell(colIdx+1);
+      cell.value=val;
+      cell.font={name:'Arial',size:10,color:{argb:'FF2D3748'}};
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:bgColor}};
+      cell.alignment={vertical:'middle',wrapText:true};
+      cell.border={
+        top:{style:'thin',color:{argb:'FFDDE3EC'}},
+        bottom:{style:'thin',color:{argb:'FFDDE3EC'}},
+        left:{style:'thin',color:{argb:'FFDDE3EC'}},
+        right:{style:'thin',color:{argb:'FFDDE3EC'}}
       };
-    }
-  }
-  // Data rows styling - alternate row colors
-  for(let r=hdrRow+1;r<=range.e.r;r++){
-    const bgColor=(r-hdrRow)%2===0?'F4F6FB':'FFFFFF';
-    for(let c=range.s.c;c<=range.e.c;c++){
-      const addr=XLSX.utils.encode_cell({r,c});
-      if(ws[addr]){
-        if(!ws[addr].s)ws[addr].s={};
-        ws[addr].s.font={name:'Arial',sz:10};
-        ws[addr].s.fill={fgColor:{rgb:bgColor}};
-        ws[addr].s.alignment={vertical:'center',wrapText:true};
-        ws[addr].s.border={
-          top:{style:'thin',color:{rgb:'DDE3EC'}},
-          bottom:{style:'thin',color:{rgb:'DDE3EC'}},
-          left:{style:'thin',color:{rgb:'DDE3EC'}},
-          right:{style:'thin',color:{rgb:'DDE3EC'}}
-        };
-      }
-    }
-  }
-}
-
-function setColumnWidths(ws,widths){
-  ws['!cols']=widths.map(w=>({wch:w}));
-}
-
-function dlAccountsXLSX(){
-  const dr=getReportDateRange();
-  const sel=COLS.filter(c=>RPTP[c.k]);
-  if(!sel.length)return sal('Please select at least one column','ae');
-  
-  // Filter accounts by date range (using createdAt)
-  let allAccs=enAccs();
-  if(dr.from||dr.to){
-    allAccs=allAccs.filter(a=>{
-      const d=a.createdAt||a.updatedAt;
-      if(dr.from&&d<dr.from)return false;
-      if(dr.to&&d>dr.to)return false;
-      return true;
     });
-  }
+  });
   
-  const headers=buildReportHeader('Accounts Report');
-  headers[7][1]=allAccs.length;
+  // Column widths
+  (colWidths||columnHeaders.map(()=>18)).forEach((w,idx)=>{
+    ws.getColumn(idx+1).width=w;
+  });
   
-  const colHdrs=sel.map(c=>c.l);
-  const rows=allAccs.map(a=>{const v=getRV(a);return sel.map(c=>v[c.k]??'');});
-  
-  const data=[...headers,[],colHdrs,...rows];
-  const ws=XLSX.utils.aoa_to_sheet(data);
-  applyHeaderStyles(ws,headers.length,headers.length+1);
-  setColumnWidths(ws,sel.map(()=>18));
-  
-  ws['!rows']=[];
-  ws['!rows'][0]={hpt:32};  // company name height
-  ws['!rows'][1]={hpt:20};
-  ws['!rows'][2]={hpt:24};
-  ws['!rows'][headers.length+1]={hpt:28};  // data header
-  
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Accounts Report');
-  XLSX.writeFile(wb,'StringBio_AgriTrack_Accounts_'+today()+'.xlsx');
-  sal('Accounts report downloaded!','as');
+  return wb;
 }
 
-function dlFullAuditXLSX(){
-  const dr=getReportDateRange();
-  let logs=DB.auditLog.filter(l=>inDateRange(l.ts,dr.from,dr.to));
-  if(!logs.length)return sal('No audit records found for selected date range','ae');
-  
-  buildAuditXLSX(logs,'Full Audit Log','StringBio_AgriTrack_FullAuditLog');
+async function downloadWorkbook(wb,filename){
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  saveAs(blob,filename);
 }
 
-function dlAuditByCompanyXLSX(){
-  const company=document.getElementById('audit-company-sel')?.value;
-  if(!company)return sal('Please select a company from the dropdown','ae');
-  const dr=getReportDateRange();
-  let logs=DB.auditLog.filter(l=>l.record===company&&inDateRange(l.ts,dr.from,dr.to));
-  if(!logs.length)return sal('No audit records found for '+company+(dr.from||dr.to?' in selected date range':''),'ae');
-  
-  buildAuditXLSX(logs,'Audit Log — '+company,'StringBio_AgriTrack_AuditLog_'+company.replace(/[^a-z0-9]/gi,'_'));
+async function dlAccountsXLSX(){
+  try{
+    const dr=getReportDateRange();
+    const sel=COLS.filter(c=>RPTP[c.k]);
+    if(!sel.length)return sal('Please select at least one column','ae');
+    
+    let allAccs=enAccs();
+    if(dr.from||dr.to){
+      allAccs=allAccs.filter(a=>{
+        const d=a.createdAt||a.updatedAt;
+        if(dr.from&&d<dr.from)return false;
+        if(dr.to&&d>dr.to)return false;
+        return true;
+      });
+    }
+    
+    const colHdrs=sel.map(c=>c.l);
+    const rows=allAccs.map(a=>{const v=getRV(a);return sel.map(c=>v[c.k]??'');});
+    const widths=sel.map(()=>18);
+    
+    const wb=await buildBrandedWorkbook('Accounts Report',colHdrs,rows,widths,'Accounts Report');
+    await downloadWorkbook(wb,'StringBio_AgriTrack_Accounts_'+today()+'.xlsx');
+    sal('Accounts report downloaded!','as');
+  }catch(e){console.error(e);sal('Download failed: '+e.message,'ae');}
 }
 
-function dlAuditByUserXLSX(){
-  const user=document.getElementById('audit-user-sel')?.value;
-  if(!user)return sal('Please select an Alliance Manager from the dropdown','ae');
-  const dr=getReportDateRange();
-  let logs=DB.auditLog.filter(l=>l.user===user&&inDateRange(l.ts,dr.from,dr.to));
-  if(!logs.length)return sal('No audit records found for '+user+(dr.from||dr.to?' in selected date range':''),'ae');
-  
-  buildAuditXLSX(logs,'Audit Log — '+user,'StringBio_AgriTrack_AuditLog_AM_'+user.replace(/[^a-z0-9]/gi,'_'));
+async function dlFullAuditXLSX(){
+  try{
+    const dr=getReportDateRange();
+    let logs=DB.auditLog.filter(l=>inDateRange(l.ts,dr.from,dr.to));
+    if(!logs.length)return sal('No audit records found for selected date range','ae');
+    await buildAuditXLSX(logs,'Full Audit Log','StringBio_AgriTrack_FullAuditLog');
+  }catch(e){console.error(e);sal('Download failed: '+e.message,'ae');}
 }
 
-function buildAuditXLSX(logs,title,filename){
-  const headers=buildReportHeader(title);
-  headers[7][1]=logs.length;
-  
+async function dlAuditByCompanyXLSX(){
+  try{
+    const company=document.getElementById('audit-company-sel')?.value;
+    if(!company)return sal('Please select a company from the dropdown','ae');
+    const dr=getReportDateRange();
+    let logs=DB.auditLog.filter(l=>l.record===company&&inDateRange(l.ts,dr.from,dr.to));
+    if(!logs.length)return sal('No audit records found for '+company+(dr.from||dr.to?' in selected date range':''),'ae');
+    await buildAuditXLSX(logs,'Audit Log — '+company,'StringBio_AgriTrack_AuditLog_'+company.replace(/[^a-z0-9]/gi,'_'));
+  }catch(e){console.error(e);sal('Download failed: '+e.message,'ae');}
+}
+
+async function dlAuditByUserXLSX(){
+  try{
+    const user=document.getElementById('audit-user-sel')?.value;
+    if(!user)return sal('Please select an Alliance Manager from the dropdown','ae');
+    const dr=getReportDateRange();
+    let logs=DB.auditLog.filter(l=>l.user===user&&inDateRange(l.ts,dr.from,dr.to));
+    if(!logs.length)return sal('No audit records found for '+user+(dr.from||dr.to?' in selected date range':''),'ae');
+    await buildAuditXLSX(logs,'Audit Log — '+user,'StringBio_AgriTrack_AuditLog_AM_'+user.replace(/[^a-z0-9]/gi,'_'));
+  }catch(e){console.error(e);sal('Download failed: '+e.message,'ae');}
+}
+
+async function buildAuditXLSX(logs,title,filenamePrefix){
   const colHdrs=['Timestamp','User','Role','Action','Company','Field','Old Value','New Value'];
   const rows=logs.map(l=>[l.ts,l.user,displayRole(l.role),l.action,l.record,l.field,l.oldv||'',l.newv||'']);
-  
-  const data=[...headers,[],colHdrs,...rows];
-  const ws=XLSX.utils.aoa_to_sheet(data);
-  applyHeaderStyles(ws,headers.length,headers.length+1);
-  setColumnWidths(ws,[22,20,18,26,24,22,22,22]);
-  
-  ws['!rows']=[];
-  ws['!rows'][0]={hpt:32};
-  ws['!rows'][1]={hpt:20};
-  ws['!rows'][2]={hpt:24};
-  ws['!rows'][headers.length+1]={hpt:28};
-  
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Audit Log');
-  XLSX.writeFile(wb,filename+'_'+today()+'.xlsx');
+  const widths=[22,20,18,26,24,22,22,22];
+  const wb=await buildBrandedWorkbook(title,colHdrs,rows,widths,'Audit Log');
+  await downloadWorkbook(wb,filenamePrefix+'_'+today()+'.xlsx');
   sal('Downloaded '+logs.length+' audit records!','as');
 }
+
+async function dlProgressCSV(){
+  try{
+    const all=enAccs();
+    const stages={'Initial connect':33,'Trials connect':66,'Business connect':100};
+    
+    const colHdrs=['Company','Group','Alliance Manager','Connect Stage','Progress %','Overall Status','AM Overdue Days','Initial Date','Trials Date','Business Date','Connect Date (DM)','Next Connect Date (DM)','Action Item'];
+    const rows=all.map(a=>[
+      a.companyName,
+      a.accountGroup||'',
+      a.partnerName,
+      a.am&&a.am.connectStage?a.am.connectStage:'Not started',
+      (stages[a.am&&a.am.connectStage]||0)+'%',
+      a.overallStatus==='red'?'Red':a.overallStatus==='yellow'?'Yellow':'Green',
+      a.amOD||0,
+      a.am&&a.am.initialDate?a.am.initialDate:'',
+      a.am&&a.am.trialsDate?a.am.trialsDate:'',
+      a.am&&a.am.businessDate?a.am.businessDate:'',
+      a.am&&a.am.connectDateDM?a.am.connectDateDM:'',
+      a.am&&a.am.nextConnectDateDM?a.am.nextConnectDateDM:'',
+      a.am&&a.am.actionItem?a.am.actionItem:''
+    ]);
+    const widths=[22,18,20,20,12,14,14,14,14,14,14,16,28];
+    const wb=await buildBrandedWorkbook('Progress Report — Company-wise & Alliance Manager-based',colHdrs,rows,widths,'Progress Report');
+    await downloadWorkbook(wb,'StringBio_AgriTrack_ProgressReport_'+today()+'.xlsx');
+    sal('Progress report downloaded!','as');
+  }catch(e){console.error(e);sal('Download failed: '+e.message,'ae');}
+}
+
 function pgAdmin(){
   if(!isA())return'<div style="text-align:center;padding:40px;color:var(--muted)">Access denied</div>';
   const pts=DB.users.filter(u=>u.role==='partner'),adms=DB.users.filter(u=>u.role==='admin'),dd=DB.dd;
