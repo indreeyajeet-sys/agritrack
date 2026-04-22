@@ -111,23 +111,23 @@ textarea{resize:vertical;min-height:60px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .sync-badge{position:fixed;bottom:12px;right:12px;background:#1a1a2e;color:#3aaa5e;font-size:10px;font-weight:600;padding:4px 10px;border-radius:12px;z-index:200;opacity:.85;display:none}
 
-/* ── Stage Action Item Blocks ── */
-.stage-ai-block{border-radius:8px;padding:11px 13px;margin-bottom:10px;border:1px solid}
-.stage-ai-block.initial{background:#fffde7;border-color:#fff176}
-.stage-ai-block.trials{background:#e8f5e9;border-color:#a5d6a7}
-.stage-ai-block.biz{background:#e3f2fd;border-color:#90caf9}
-.stage-ai-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
-.stage-badge{padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block}
-.badge-initial{background:#fff176;color:#f57f17}
-.badge-trials{background:#a5d6a7;color:#1b5e20}
-.badge-biz{background:#90caf9;color:#0d47a1}
-.btn-edit-toggle{background:#fff8e1;border:1px solid #ffe082;color:#f57f17;padding:3px 10px;font-size:10px;font-weight:700;border-radius:5px;cursor:pointer}
-.btn-edit-toggle.active{background:#e3f2fd;border-color:#90caf9;color:#1565c0}
-.ro-locked{background:#f9f9f9;border:1px dashed #b0bec5;border-radius:6px;padding:6px 10px;font-size:12px;color:#607d8b;min-height:34px;font-style:italic}
+/* ── Stage Action Item Blocks — clean, uniform with card style ── */
+.stage-ai-block{border-radius:6px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border);background:#f9fbff}
+.stage-ai-block.initial{background:#fffef5;border-color:#e8e0b0}
+.stage-ai-block.trials{background:#f5fbf5;border-color:#b8ddb8}
+.stage-ai-block.biz{background:#f5f8fd;border-color:#b5d4f4}
+.stage-ai-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.stage-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+.badge-initial{color:#b8860b}
+.badge-trials{color:#2e7d32}
+.badge-biz{color:#1565c0}
+.btn-edit-toggle{background:#f4f6fb;border:1px solid var(--border);color:var(--muted);padding:2px 9px;font-size:10px;font-weight:600;border-radius:5px;cursor:pointer}
+.btn-edit-toggle.active{background:#e8f0fb;border-color:#4a7ec7;color:#1a5276}
+.ro-locked{background:#f4f6fb;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:#4a5568;min-height:34px}
 
-/* ── Admin Action Item Block ── */
-.admin-ai-block{background:#fff8f0;border:1px solid #ffcc80;border-radius:8px;padding:11px 13px;margin-bottom:10px}
-.admin-ai-label{font-size:11px;font-weight:700;color:#e65100;display:flex;align-items:center;gap:5px;margin-bottom:6px}
+/* ── Admin / Account-level Action Item — inline field style ── */
+.admin-ai-block{background:transparent;border:none;padding:0;margin-bottom:0}
+.admin-ai-label{font-size:11px;font-weight:700;color:#4a5568;display:flex;align-items:center;gap:4px;margin-bottom:3px}
 </style>
 </head>
 <body>
@@ -465,92 +465,64 @@ function filtAccs(){
    • No stage yet     → shows Initial field only (will save when stage chosen)
 */
 function buildStageActionItems(exAM, overrideCS){
-  // overrideCS is passed when stage pill is clicked (before save)
-  // falls back to saved DB value
   const cs = overrideCS !== undefined ? overrideCS : (exAM ? exAM.connectStage : '');
   const showInitial = !cs || cs==='Initial connect' || cs==='Trials connect' || cs==='Business connect';
   const showTrials  = cs==='Trials connect' || cs==='Business connect';
   const showBiz     = cs==='Business connect';
-
   let html = '';
 
-  /* ── INITIAL CONNECT ── */
   if(showInitial){
-    const isCurrentStage = cs==='' || cs==='Initial connect';
-    const isLocked       = !isCurrentStage && !EDIT_UNLOCKED.initial;
-    const val            = exAM ? (exAM.initialActionItem||'') : '';
-
-    html += `<div class="stage-ai-block initial">
-      <div class="stage-ai-header">
-        <span class="stage-badge badge-initial">&#x1F7E1; Initial Connect Action Item</span>
-        ${!isCurrentStage
-          ? `<button type="button"
-               class="btn-edit-toggle${EDIT_UNLOCKED.initial?' active':''}"
-               onclick="EDIT_UNLOCKED.initial=!EDIT_UNLOCKED.initial;R()">
-               ${EDIT_UNLOCKED.initial?'&#x1F513; Editing':'&#x1F512; Edit'}
-             </button>`
-          : ''}
-      </div>`;
-    if(isLocked){
-      html += `<div class="ro-locked">${val||'<em>No action item recorded</em>'}</div>`;
-    } else {
-      html += `<input type="text" id="f-init-ai" value="${val.replace(/"/g,'&quot;')}" placeholder="Action taken at Initial Connect stage…">`;
-    }
-    html += `</div>`;
+    const isCur  = cs==='' || cs==='Initial connect';
+    const locked = !isCur && !EDIT_UNLOCKED.initial;
+    const val    = exAM ? (exAM.initialActionItem||'') : '';
+    const editBtn = !isCur
+      ? '<button type="button" class="btn-edit-toggle' + (EDIT_UNLOCKED.initial?' active':'') + '" onclick="toggleEditUnlock(this,0)">' + (EDIT_UNLOCKED.initial?'&#x1F513; Editing':'&#x1F512; Edit') + '</button>'
+      : '';
+    html += '<div class="stage-ai-block initial">'
+      + '<div class="stage-ai-header"><span class="stage-badge badge-initial">Initial Connect</span>' + editBtn + '</div>'
+      + (locked
+          ? '<div class="ro-locked">' + (val||'<span style="color:var(--muted);font-style:italic">No action item recorded</span>') + '</div>'
+          : '<input type="text" id="f-init-ai" value="' + val.replace(/"/g,'&quot;') + '" placeholder="Action item for Initial Connect stage…" style="background:#fff">'
+        )
+      + '</div>';
   }
 
-  /* ── TRIALS CONNECT ── */
   if(showTrials){
-    const isCurrentStage = cs==='Trials connect';
-    const isLocked       = !isCurrentStage && !EDIT_UNLOCKED.trials;
-    const val            = exAM ? (exAM.trialsActionItem||'') : '';
-
-    html += `<div class="stage-ai-block trials">
-      <div class="stage-ai-header">
-        <span class="stage-badge badge-trials">&#x1F7E2; Trials Connect Action Item</span>
-        ${!isCurrentStage
-          ? `<button type="button"
-               class="btn-edit-toggle${EDIT_UNLOCKED.trials?' active':''}"
-               onclick="EDIT_UNLOCKED.trials=!EDIT_UNLOCKED.trials;R()">
-               ${EDIT_UNLOCKED.trials?'&#x1F513; Editing':'&#x1F512; Edit'}
-             </button>`
-          : ''}
-      </div>`;
-    if(isLocked){
-      html += `<div class="ro-locked">${val||'<em>No action item recorded</em>'}</div>`;
-    } else {
-      html += `<input type="text" id="f-trials-ai" value="${val.replace(/"/g,'&quot;')}" placeholder="Action taken at Trials Connect stage…">`;
-    }
-    html += `</div>`;
+    const isCur  = cs==='Trials connect';
+    const locked = !isCur && !EDIT_UNLOCKED.trials;
+    const val    = exAM ? (exAM.trialsActionItem||'') : '';
+    const editBtn = !isCur
+      ? '<button type="button" class="btn-edit-toggle' + (EDIT_UNLOCKED.trials?' active':'') + '" onclick="toggleEditUnlock(this,1)">' + (EDIT_UNLOCKED.trials?'&#x1F513; Editing':'&#x1F512; Edit') + '</button>'
+      : '';
+    html += '<div class="stage-ai-block trials">'
+      + '<div class="stage-ai-header"><span class="stage-badge badge-trials">Trials Connect</span>' + editBtn + '</div>'
+      + (locked
+          ? '<div class="ro-locked">' + (val||'<span style="color:var(--muted);font-style:italic">No action item recorded</span>') + '</div>'
+          : '<input type="text" id="f-trials-ai" value="' + val.replace(/"/g,'&quot;') + '" placeholder="Action item for Trials Connect stage…" style="background:#fff">'
+        )
+      + '</div>';
   }
 
-  /* ── BUSINESS CONNECT (3 sub-items) ── */
   if(showBiz){
-    const b1=exAM?(exAM.bizAction1||''):'';
-    const b2=exAM?(exAM.bizAction2||''):'';
-    const b3=exAM?(exAM.bizAction3||''):'';
-
-    html += `<div class="stage-ai-block biz">
-      <div class="stage-ai-header">
-        <span class="stage-badge badge-biz">&#x1F535; Business Connect Action Items</span>
-        <span style="font-size:10px;color:#1565c0;background:#e3f2fd;padding:2px 7px;border-radius:8px">3 sub-items</span>
-      </div>
-      <div class="fg" style="margin-bottom:7px">
-        <label class="fl" style="color:#1565c0">Business Action 1</label>
-        <input type="text" id="f-biz1" value="${b1.replace(/"/g,'&quot;')}" placeholder="First business connect action…">
-      </div>
-      <div class="fg" style="margin-bottom:7px">
-        <label class="fl" style="color:#1565c0">Business Action 2</label>
-        <input type="text" id="f-biz2" value="${b2.replace(/"/g,'&quot;')}" placeholder="Second business connect action…">
-      </div>
-      <div class="fg" style="margin-bottom:0">
-        <label class="fl" style="color:#1565c0">Business Action 3</label>
-        <input type="text" id="f-biz3" value="${b3.replace(/"/g,'&quot;')}" placeholder="Third business connect action…">
-      </div>
-    </div>`;
+    const b1 = exAM?(exAM.bizAction1||''):'';
+    const b2 = exAM?(exAM.bizAction2||''):'';
+    const b3 = exAM?(exAM.bizAction3||''):'';
+    html += '<div class="stage-ai-block biz">'
+      + '<div class="stage-ai-header"><span class="stage-badge badge-biz">Business Connect</span></div>'
+      + '<div class="fg" style="margin-bottom:6px"><label class="fl">Business Action 1</label><input type="text" id="f-biz1" value="' + b1.replace(/"/g,'&quot;') + '" placeholder="First business action…" style="background:#fff"></div>'
+      + '<div class="fg" style="margin-bottom:6px"><label class="fl">Business Action 2</label><input type="text" id="f-biz2" value="' + b2.replace(/"/g,'&quot;') + '" placeholder="Second business action…" style="background:#fff"></div>'
+      + '<div class="fg" style="margin-bottom:0"><label class="fl">Business Action 3</label><input type="text" id="f-biz3" value="' + b3.replace(/"/g,'&quot;') + '" placeholder="Third business action…" style="background:#fff"></div>'
+      + '</div>';
   }
 
-  return html || `<div style="font-size:11px;color:var(--muted);font-style:italic;padding:6px">Select a connect stage above to enter action items.</div>`;
+  if(!html){
+    html = '<div class="stage-ai-block initial">'
+      + '<div class="stage-ai-header"><span class="stage-badge badge-initial">Initial Connect</span></div>'
+      + '<input type="text" id="f-init-ai" value="" placeholder="Action item for Initial Connect stage…" style="background:#fff">'
+      + '</div>';
+  }
+
+  return html;
 }
 
 /* ─────────────────────────── PAGES ─────────────────────────── */
@@ -608,7 +580,7 @@ ${!myAccs.length?`<div class="card"><div style="text-align:center;padding:28px;c
 <div><div style="color:var(--muted)">Priority</div><strong>${a.accountPriority||'—'}</strong></div>
 <div><div style="color:var(--muted)">Crop</div><strong>${a.crop||'—'}</strong></div>
 <div><div style="color:var(--muted)">Connect Stage</div><strong>${a.am?.connectStage||'<span style="color:var(--muted)">Not set</span>'}</strong></div></div>
-${a.adminActionItem&&canPartner('viewAdminActionItem')?`<div class="admin-ai-block" style="margin-top:7px"><div class="admin-ai-label">&#128221; Account-level Action Item</div><div style="font-size:12px;color:#4a5568">${a.adminActionItem}</div></div>`:''}
+${a.adminActionItem&&canPartner('viewAdminActionItem')?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid #f0f3f8"><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Action Item</div><div style="font-size:12px;color:#2d3748">${a.adminActionItem}</div></div>`:''}
 </div>`).join('')}`;}
 
 /* ── AM UPDATE PAGE (partner fills) ── */
@@ -647,9 +619,9 @@ ${canPartner('viewAccountStage')?`<div class="fg"><label class="fl">Stage</label
 <div class="fg"><label class="fl">Overall Status</label><div class="ro-box"><span class="pill ${sc(sel.overallStatus)}">${sel.overallStatus==='red'?'Red':sel.overallStatus==='yellow'?'Yellow':'Green'}</span></div></div>`:''}
 </div>
 ${canPartner('viewAdminActionItem')&&sel.adminActionItem?`
-<div class="admin-ai-block" style="margin-top:8px">
-  <div class="admin-ai-label">&#128221; Account-level Action Item</div>
-  <div style="font-size:12px;color:#4a5568;line-height:1.5">${sel.adminActionItem}</div>
+<div class="fg full" style="margin-top:4px">
+  <label class="fl">Action Item</label>
+  <div class="ro-box">${sel.adminActionItem}</div>
 </div>`:''}
 </div>`:'<div class="card" style="border-color:#fde8e8"><div style="padding:14px;text-align:center;color:#e74c3c;font-size:12px">&#x26D4; No permission to view account overview</div></div>'}
 
@@ -734,13 +706,9 @@ ${DB.users.filter(u=>u.role==='partner').map(p=>`<option value="${p.id}"${acc?.a
 </div>
 
 <!-- ADMIN ACTION ITEM -->
-<div class="divlbl" style="margin-top:6px">Account-level Action Item <span style="font-weight:400;color:var(--muted)">(filled by Admin — visible to Alliance Manager)</span></div>
-<div class="admin-ai-block">
-  <div class="admin-ai-label">&#128221; Admin Action Item</div>
-  <div class="fg" style="margin-bottom:0">
-    <textarea id="fa-aai" placeholder="Enter a task or instruction for the Alliance Manager on this account…" style="min-height:70px">${acc?.adminActionItem||''}</textarea>
-  </div>
-  <div style="font-size:10px;color:#e65100;margin-top:5px">&#9432; This will be visible to the assigned Alliance Manager in their account view.</div>
+<div class="fg full" style="margin-top:2px">
+  <label class="fl">Action Item <span style="font-weight:400;color:var(--muted)">(visible to Alliance Manager)</span></label>
+  <textarea id="fa-aai" placeholder="Enter a task or action for the Alliance Manager…" style="min-height:60px">${acc?.adminActionItem||''}</textarea>
 </div>
 
 <div class="divlbl" style="margin-top:4px">Trial Details</div>
@@ -772,7 +740,6 @@ function adminAMSection(sid){
 
   return `<div class="card" style="margin-top:10px">
 <div class="sh sh-am">AM Connect <span style="font-size:11px;font-weight:500;margin-left:3px">(Admin view — edit in special cases)</span></div>
-<div class="banner banner-orange">Admin can update AM Connect for special cases. Normally filled by the Alliance Manager.</div>
 
 <div style="margin-bottom:10px">
   <label class="fl" style="margin-bottom:6px">Connect Stage</label>
@@ -1315,19 +1282,18 @@ function closeM(){MODAL=null;R();}
 
 // Stage select for AM Update page (partner)
 function selCSAM(el, val){
-  // Store in JS variable — safe across re-renders
   SEL_CS_AM = val;
   EDIT_UNLOCKED = {initial:false, trials:false};
-  // Update pill styles without full re-render
+  // Update pill styles
   document.querySelectorAll('#am-stage-pills .csp').forEach(b=>{
     b.classList.toggle('sel', b.dataset.stage===val);
   });
-  // Re-render only the action items section
+  // Re-render action items section
   const box = document.getElementById('am-action-items-box');
-  if(box){
-    const exAM = SEL_ACC ? getAM(SEL_ACC) : null;
-    box.innerHTML = buildStageActionItems(exAM, val);
-  }
+  const exAM = SEL_ACC ? getAM(SEL_ACC) : null;
+  if(box) box.innerHTML = buildStageActionItems(exAM, val);
+  // Restore per-stage dates
+  _restoreStageDates(exAM, val, 'f-acd', 'f-ncd', 'od-disp');
 }
 // Stage select for Admin section
 function selCSAdmin(el, val){
@@ -1336,34 +1302,74 @@ function selCSAdmin(el, val){
   document.querySelectorAll('#admin-stage-pills .csp').forEach(b=>{
     b.classList.toggle('sel', b.dataset.stage===val);
   });
+  const accId = window._aSel||'';
+  const exAM = accId ? getAM(accId) : null;
   const box = document.getElementById('admin-action-items-box');
-  if(box){
+  if(box) box.innerHTML = buildStageActionItems(exAM, val);
+  // Restore per-stage dates
+  _restoreStageDates(exAM, val, 'fa-acd', 'fa-ncd', 'od-disp-admin');
+}
+
+// Restore connect dates when switching stages
+function _restoreStageDates(exAM, stage, acdId, ncdId, odId){
+  if(!exAM) return;
+  // Each stage has its own saved connect date
+  const stageDateMap = {
+    'Initial connect': exAM.initialDate||'',
+    'Trials connect':  exAM.trialsDate||'',
+    'Business connect':exAM.businessDate||''
+  };
+  const stageConnectDate = stageDateMap[stage]||'';
+  const nextDate = exAM.nextConnectDateDM||'';
+  const acd = document.getElementById(acdId);
+  const ncd = document.getElementById(ncdId);
+  if(acd) acd.value = stageConnectDate;
+  if(ncd) ncd.value = nextDate;
+  calcODById(nextDate, odId);
+}
+function calcODById(val, elId){
+  const el=document.getElementById(elId);
+  if(!el)return;
+  const od=odD(val);
+  el.textContent=val?(od>0?`+${od} days overdue`:'On track — not overdue'):'Enter next connect date';
+}
+
+function calcOD(val){calcODById(val,'od-disp');}
+function calcODAdmin(val){calcODById(val,'od-disp-admin');}
+
+function toggleEditUnlock(el, stageIdx){
+  const stage = stageIdx===0 ? 'initial' : 'trials';
+  EDIT_UNLOCKED[stage] = !EDIT_UNLOCKED[stage];
+  const amBox = document.getElementById('am-action-items-box');
+  const adminBox = document.getElementById('admin-action-items-box');
+  if(amBox){
+    const exAM = SEL_ACC ? getAM(SEL_ACC) : null;
+    amBox.innerHTML = buildStageActionItems(exAM, SEL_CS_AM);
+  }
+  if(adminBox){
     const accId = window._aSel||'';
     const exAM = accId ? getAM(accId) : null;
-    box.innerHTML = buildStageActionItems(exAM, val);
+    adminBox.innerHTML = buildStageActionItems(exAM, SEL_CS_ADMIN);
   }
 }
 
-function calcOD(val){const el=document.getElementById('od-disp');if(!el)return;const od=odD(val);el.textContent=val?(od>0?`+${od} days overdue`:'On track — not overdue'):'Enter next connect date';}
-function calcODAdmin(val){const el=document.getElementById('od-disp-admin');if(!el)return;const od=odD(val);el.textContent=val?(od>0?`+${od} days overdue`:'On track — not overdue'):'Enter next connect date';}
-
 /* ─────────────────────────── SAVE: AM UPDATE ─────────────────────────── */
 async function _doSaveAM(accId, exId, isAdmin){
-  // Read stage from JS variable (not hidden input — those were removed)
   const cs = isAdmin ? SEL_CS_ADMIN : SEL_CS_AM;
   const acd=document.getElementById(isAdmin?'fa-acd':'f-acd')?.value||'';
   const ncd=document.getElementById(isAdmin?'fa-ncd':'f-ncd')?.value||'';
 
-  // Read stage action items from DOM
-  const initAI=document.getElementById('f-init-ai')?.value||'';
-  const trialsAI=document.getElementById('f-trials-ai')?.value||'';
-  const biz1=document.getElementById('f-biz1')?.value||'';
-  const biz2=document.getElementById('f-biz2')?.value||'';
-  const biz3=document.getElementById('f-biz3')?.value||'';
-
   const acc=DB.accounts.find(a=>a.id===accId);
   const prev=DB.amUpdates.find(x=>x.id===exId)||{};
   if(!acd&&!ncd&&!cs)return sal('Please select a stage or enter at least one date','ae');
+
+  // Read only DOM fields that exist for current stage, fallback to saved prev values
+  // This preserves data from other stages that aren't shown in DOM right now
+  const initAI  = document.getElementById('f-init-ai')   ? document.getElementById('f-init-ai').value   : (prev.initialActionItem||'');
+  const trialsAI= document.getElementById('f-trials-ai') ? document.getElementById('f-trials-ai').value : (prev.trialsActionItem||'');
+  const biz1    = document.getElementById('f-biz1')      ? document.getElementById('f-biz1').value      : (prev.bizAction1||'');
+  const biz2    = document.getElementById('f-biz2')      ? document.getElementById('f-biz2').value      : (prev.bizAction2||'');
+  const biz3    = document.getElementById('f-biz3')      ? document.getElementById('f-biz3').value      : (prev.bizAction3||'');
 
   const stageDate=acd||today();
   const row={
@@ -1371,7 +1377,6 @@ async function _doSaveAM(accId, exId, isAdmin){
     account_id:accId,
     partner_id:CU.id,
     connect_stage:cs,
-    // Composite action_item for backward compat
     action_item: cs==='Business connect'?[biz1,biz2,biz3].filter(Boolean).join(' | '):cs==='Trials connect'?trialsAI:initAI,
     initial_action_item:initAI,
     trials_action_item:trialsAI,
@@ -1390,8 +1395,8 @@ async function _doSaveAM(accId, exId, isAdmin){
 
   const name=acc?.companyName||accId;
   if(cs!==prev.connectStage)await sbLog('Updated Connect Stage',name,'connectStage',prev.connectStage||'',cs,{accountId:accId});
-  if(acd!==prev.connectDateDM)await sbLog('Updated Connect Date',name,'connectDateDM',prev.connectDateDM||'',acd,{accountId:accId});
-  if(ncd!==prev.nextConnectDateDM)await sbLog('Updated Next Connect Date',name,'nextConnectDateDM',prev.nextConnectDateDM||'',ncd,{accountId:accId});
+  if(acd!==(prev.connectDateDM||''))await sbLog('Updated Connect Date',name,'connectDateDM',prev.connectDateDM||'',acd,{accountId:accId});
+  if(ncd!==(prev.nextConnectDateDM||''))await sbLog('Updated Next Connect Date',name,'nextConnectDateDM',prev.nextConnectDateDM||'',ncd,{accountId:accId});
   if(initAI!==(prev.initialActionItem||''))await sbLog('Updated Initial Action Item',name,'initialActionItem',prev.initialActionItem||'',initAI,{accountId:accId});
   if(trialsAI!==(prev.trialsActionItem||''))await sbLog('Updated Trials Action Item',name,'trialsActionItem',prev.trialsActionItem||'',trialsAI,{accountId:accId});
   if(biz1!==(prev.bizAction1||''))await sbLog('Updated Business Action 1',name,'bizAction1',prev.bizAction1||'',biz1,{accountId:accId});
