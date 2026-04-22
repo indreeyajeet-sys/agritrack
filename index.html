@@ -200,6 +200,9 @@ let CU=null, PAGE='dashboard', MODAL=null, AL=null,
 
 // Edit-unlock state for previous-stage action items (resets on stage change or cancel)
 let EDIT_UNLOCKED = { initial: false, trials: false };
+// Currently selected connect stage — stored in JS so R() re-render doesn't lose it
+let SEL_CS_AM    = '';   // AM Update page
+let SEL_CS_ADMIN = '';   // Admin AM Connect section
 
 let charts={}, BOOT=true;
 
@@ -461,8 +464,10 @@ function filtAccs(){
    • Business connect → shows Initial (locked/toggle) + Trials (locked/toggle) + Biz 1/2/3 (editable)
    • No stage yet     → shows Initial field only (will save when stage chosen)
 */
-function buildStageActionItems(exAM){
-  const cs = exAM ? exAM.connectStage : '';
+function buildStageActionItems(exAM, overrideCS){
+  // overrideCS is passed when stage pill is clicked (before save)
+  // falls back to saved DB value
+  const cs = overrideCS !== undefined ? overrideCS : (exAM ? exAM.connectStage : '');
   const showInitial = !cs || cs==='Initial connect' || cs==='Trials connect' || cs==='Business connect';
   const showTrials  = cs==='Trials connect' || cs==='Business connect';
   const showBiz     = cs==='Business connect';
@@ -595,7 +600,7 @@ function pgMyAccs(){
   const myAccs=enAccs().filter(a=>a.assignedPartnerId===CU.id);
   return`<div style="font-size:17px;font-weight:700;margin-bottom:3px">My Assigned Accounts</div>
 <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Click any account to update your AM Connect progress.</div>
-${!myAccs.length?`<div class="card"><div style="text-align:center;padding:28px;color:var(--muted)">No accounts assigned yet.</div></div>`:myAccs.map(a=>`<div class="acc-card" onclick="SEL_ACC='${a.id}';EDIT_UNLOCKED={initial:false,trials:false};PAGE='am-update';R()">
+${!myAccs.length?`<div class="card"><div style="text-align:center;padding:28px;color:var(--muted)">No accounts assigned yet.</div></div>`:myAccs.map(a=>`<div class="acc-card" onclick="SEL_ACC='${a.id}';EDIT_UNLOCKED={initial:false,trials:false};SEL_CS_AM='';PAGE='am-update';R()">
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px"><div><div style="font-size:13px;font-weight:700">${a.companyName}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${a.accountGroup} &middot; ${a.stageName}</div></div>
 <div style="display:flex;gap:5px;align-items:center"><span class="pill ${sc(a.overallStatus)}">${a.overallStatus==='red'?'Red':a.overallStatus==='yellow'?'Yellow':'Green'}</span>${a.amOD>0?`<span class="oday">+${a.amOD}d OD</span>`:''}</div></div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;font-size:11px">
@@ -603,7 +608,7 @@ ${!myAccs.length?`<div class="card"><div style="text-align:center;padding:28px;c
 <div><div style="color:var(--muted)">Priority</div><strong>${a.accountPriority||'—'}</strong></div>
 <div><div style="color:var(--muted)">Crop</div><strong>${a.crop||'—'}</strong></div>
 <div><div style="color:var(--muted)">Connect Stage</div><strong>${a.am?.connectStage||'<span style="color:var(--muted)">Not set</span>'}</strong></div></div>
-${a.adminActionItem&&canPartner('viewAdminActionItem')?`<div class="admin-ai-block" style="margin-top:7px"><div class="admin-ai-label">&#128221; Account-level Action Item (set by Admin)</div><div style="font-size:12px;color:#4a5568">${a.adminActionItem}</div></div>`:''}
+${a.adminActionItem&&canPartner('viewAdminActionItem')?`<div class="admin-ai-block" style="margin-top:7px"><div class="admin-ai-label">&#128221; Account-level Action Item</div><div style="font-size:12px;color:#4a5568">${a.adminActionItem}</div></div>`:''}
 </div>`).join('')}`;}
 
 /* ── AM UPDATE PAGE (partner fills) ── */
@@ -614,13 +619,15 @@ function pgAMUpd(){
   const eSel=sel?enAccs().find(a=>a.id===SEL_ACC):null;
   const exAM=sel?getAM(sel.id):null;
   const csOpts=(DB.dd.connectStage)||['Initial connect','Trials connect','Business connect'];
-  const curCS=exAM?.connectStage||'';
+  // Use JS variable as source of truth; seed it from DB if not yet set for this account
+  if(sel && SEL_CS_AM==='' && exAM?.connectStage) SEL_CS_AM=exAM.connectStage;
+  const curCS=SEL_CS_AM;
 
   return`<div style="font-size:17px;font-weight:700;margin-bottom:3px">Update AM Connect</div>
 <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Select an account and fill in your AM Connect progress.</div>
 <div class="card"><div class="divlbl">Select Account</div>
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:9px">
-${myAccs.map(a=>`<div onclick="SEL_ACC='${a.id}';EDIT_UNLOCKED={initial:false,trials:false};R()" style="padding:9px 11px;border:2px solid ${SEL_ACC===a.id?'#4a7ec7':'var(--border)'};border-radius:8px;cursor:pointer;background:${SEL_ACC===a.id?'#f0f7ff':'#fff'}"><div style="font-size:12px;font-weight:700">${a.companyName}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${a.accountGroup} &middot; <span class="pill ${sc(a.overallStatus)}" style="font-size:10px;padding:1px 5px">${a.overallStatus}</span></div></div>`).join('')}
+${myAccs.map(a=>`<div onclick="SEL_ACC='${a.id}';EDIT_UNLOCKED={initial:false,trials:false};SEL_CS_AM='';R()" style="padding:9px 11px;border:2px solid ${SEL_ACC===a.id?'#4a7ec7':'var(--border)'};border-radius:8px;cursor:pointer;background:${SEL_ACC===a.id?'#f0f7ff':'#fff'}"><div style="font-size:12px;font-weight:700">${a.companyName}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${a.accountGroup} &middot; <span class="pill ${sc(a.overallStatus)}" style="font-size:10px;padding:1px 5px">${a.overallStatus}</span></div></div>`).join('')}
 </div></div>
 
 ${!sel?`<div class="card"><div style="text-align:center;padding:18px;color:var(--muted)">Select an account above to update AM Connect</div></div>`:`
@@ -641,7 +648,7 @@ ${canPartner('viewAccountStage')?`<div class="fg"><label class="fl">Stage</label
 </div>
 ${canPartner('viewAdminActionItem')&&sel.adminActionItem?`
 <div class="admin-ai-block" style="margin-top:8px">
-  <div class="admin-ai-label">&#128221; Account-level Action Item (set by Admin)</div>
+  <div class="admin-ai-label">&#128221; Account-level Action Item</div>
   <div style="font-size:12px;color:#4a5568;line-height:1.5">${sel.adminActionItem}</div>
 </div>`:''}
 </div>`:'<div class="card" style="border-color:#fde8e8"><div style="padding:14px;text-align:center;color:#e74c3c;font-size:12px">&#x26D4; No permission to view account overview</div></div>'}
@@ -652,10 +659,9 @@ ${exAM?`<div class="banner banner-blue">Last saved on ${exAM.updatedAt}. Saving 
 
 <div style="margin-bottom:12px">
   <label class="fl" style="margin-bottom:7px">Connect Stage</label>
-  <div style="display:flex;gap:7px;flex-wrap:wrap">
-    ${csOpts.map(s=>`<button type="button" class="csp${curCS===s?' sel':''}" onclick="selCSAM(this,'${s}')">${s}</button>`).join('')}
+  <div id="am-stage-pills" style="display:flex;gap:7px;flex-wrap:wrap">
+    ${csOpts.map(s=>`<button type="button" class="csp${curCS===s?' sel':''}" data-stage="${s}" onclick="selCSAM(this,'${s}')">${s}</button>`).join('')}
   </div>
-  <input type="hidden" id="f-cs" value="${curCS}">
 </div>
 
 <div class="fg2">
@@ -668,12 +674,12 @@ ${exAM?`<div class="banner banner-blue">Last saved on ${exAM.updatedAt}. Saving 
 <!-- STAGE ACTION ITEMS TRAIL -->
 <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f0f3f8">
   <div class="divlbl">Stage Action Items <span style="font-weight:400;color:var(--muted);font-size:10px">&mdash; previous stages shown read-only (&#x1F512; Edit to unlock)</span></div>
-  ${buildStageActionItems(exAM)}
+  <div id="am-action-items-box">${buildStageActionItems(exAM, curCS)}</div>
 </div>
 
 <div style="display:flex;gap:9px;margin-top:14px">
   <button class="abtn abtn-blue" onclick="saveAMUpdate('${sel.id}','${exAM?.id||''}')">Save AM Connect</button>
-  <button class="abtn-sm btn-ghost" style="padding:6px 12px;font-size:12px" onclick="SEL_ACC=null;EDIT_UNLOCKED={initial:false,trials:false};R()">Cancel</button>
+  <button class="abtn-sm btn-ghost" style="padding:6px 12px;font-size:12px" onclick="SEL_ACC=null;EDIT_UNLOCKED={initial:false,trials:false};SEL_CS_AM='';R()">Cancel</button>
 </div></div>
 
 ${canPartner('viewTrials')?`<div class="card"><div class="sh sh-tr">Trials <span style="font-size:11px;font-weight:500;margin-left:3px">(Trial Details)</span></div>
@@ -699,8 +705,8 @@ function pgAccEntry(){
   return`<div class="g2" style="align-items:start">
 <div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
 <div style="font-size:15px;font-weight:700">Account Records (${DB.accounts.length})</div>
-<button class="nfbtn" onclick="window._aSel='';R()">+ New Account</button></div>
-${DB.accounts.map(a=>`<div onclick="window._aSel='${a.id}';EDIT_UNLOCKED={initial:false,trials:false};R()" style="padding:9px 12px;border:2px solid ${sid===a.id?'#4a7ec7':'var(--border)'};border-radius:8px;margin-bottom:7px;cursor:pointer;background:${sid===a.id?'#f0f7ff':'#fff'}">
+<button class="nfbtn" onclick="window._aSel='';SEL_CS_ADMIN='';R()">+ New Account</button></div>
+${DB.accounts.map(a=>`<div onclick="window._aSel='${a.id}';EDIT_UNLOCKED={initial:false,trials:false};SEL_CS_ADMIN='';R()" style="padding:9px 12px;border:2px solid ${sid===a.id?'#4a7ec7':'var(--border)'};border-radius:8px;margin-bottom:7px;cursor:pointer;background:${sid===a.id?'#f0f7ff':'#fff'}">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <div><div style="font-size:12px;font-weight:700">${a.companyName}</div><div style="font-size:10px;color:var(--muted);margin-top:1px">${a.accountGroup||'—'} &middot; ${gu(a.assignedPartnerId).name}</div></div>
 <span class="pill ${sc(a.overallStatus)}" style="font-size:10px">${a.overallStatus==='red'?'Red':a.overallStatus==='yellow'?'Yellow':'Green'}</span></div></div>`).join('')}
@@ -748,7 +754,7 @@ ${DB.users.filter(u=>u.role==='partner').map(p=>`<option value="${p.id}"${acc?.a
 
 <div style="display:flex;gap:9px;margin-top:4px;align-items:center">
 <button class="abtn abtn-blue" onclick="saveAcc('${sid}')">Save Account Record</button>
-<button class="abtn-sm btn-ghost" style="padding:6px 12px;font-size:12px" onclick="window._aSel=null;R()">Cancel</button>
+<button class="abtn-sm btn-ghost" style="padding:6px 12px;font-size:12px" onclick="window._aSel=null;SEL_CS_ADMIN='';R()">Cancel</button>
 ${sid?`<button class="abtn-sm btn-red" style="padding:6px 12px;font-size:12px;margin-left:auto" onclick="delAcc('${sid}')">Delete</button>`:''}
 </div>
 
@@ -760,7 +766,9 @@ ${sid?adminAMSection(sid):''}
 function adminAMSection(sid){
   const exAM=getAM(sid);
   const csOpts=(DB.dd.connectStage)||['Initial connect','Trials connect','Business connect'];
-  const curCS=exAM?exAM.connectStage:'';
+  // Seed SEL_CS_ADMIN from DB if not yet set for this account
+  if(SEL_CS_ADMIN==='' && exAM?.connectStage) SEL_CS_ADMIN=exAM.connectStage;
+  const curCS=SEL_CS_ADMIN;
 
   return `<div class="card" style="margin-top:10px">
 <div class="sh sh-am">AM Connect <span style="font-size:11px;font-weight:500;margin-left:3px">(Admin view — edit in special cases)</span></div>
@@ -768,10 +776,9 @@ function adminAMSection(sid){
 
 <div style="margin-bottom:10px">
   <label class="fl" style="margin-bottom:6px">Connect Stage</label>
-  <div style="display:flex;gap:7px;flex-wrap:wrap">
-    ${csOpts.map(s=>`<button type="button" class="csp${curCS===s?' sel':''}" onclick="selCSAdmin(this,'${s}')">${s}</button>`).join('')}
+  <div id="admin-stage-pills" style="display:flex;gap:7px;flex-wrap:wrap">
+    ${csOpts.map(s=>`<button type="button" class="csp${curCS===s?' sel':''}" data-stage="${s}" onclick="selCSAdmin(this,'${s}')">${s}</button>`).join('')}
   </div>
-  <input type="hidden" id="fa-cs" value="${curCS}">
 </div>
 
 <div class="fg2">
@@ -783,7 +790,7 @@ function adminAMSection(sid){
 
 <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f0f3f8">
   <div class="divlbl">Stage Action Items <span style="font-weight:400;color:var(--muted);font-size:10px">&mdash; previous stages shown read-only (&#x1F512; Edit to unlock)</span></div>
-  ${buildStageActionItems(exAM)}
+  <div id="admin-action-items-box">${buildStageActionItems(exAM, curCS)}</div>
 </div>
 
 <button class="abtn abtn-blue" style="margin-top:12px" onclick="saveAMUpdateAdmin('${sid}','${exAM?.id||''}')">Save AM Connect</button>
@@ -805,7 +812,7 @@ function pgFU(){
 <div class="ctitle" style="margin-bottom:0">Account Follow-Up Details</div>
 <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
 <div style="position:relative;display:flex;align-items:center"><span style="position:absolute;left:8px;color:var(--muted);font-size:12px">&#128269;</span><input type="text" placeholder="Search..." value="${SEARCH}" oninput="SEARCH=this.value;PIDX=0;R()" style="padding:6px 9px 6px 28px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:150px;background:#f4f6fb;outline:none"></div>
-${isA()?`<button class="nfbtn" onclick="PAGE='account-entry';window._aSel='';R()">+ New Account</button>`:''}
+${isA()?`<button class="nfbtn" onclick="PAGE='account-entry';window._aSel='';SEL_CS_ADMIN='';R()">+ New Account</button>`:''}
 </div></div>
 <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
 ${isA()?`<select style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:#fff;outline:none" onchange="ASGN=this.value;PIDX=0;R()"><option value="all">All Alliance Managers</option>${pts.map(p=>`<option value="${p.id}"${ASGN===p.id?' selected':''}>${p.name}</option>`).join('')}</select>`:''}
@@ -826,7 +833,7 @@ ${isA()?`<td style="font-size:11px">${a.partnerName}</td>`:''}
 <td>${a.amOD>0?`<span class="oday">+${a.amOD}d</span>`:'<span style="color:#3aaa5e;font-size:11px">OK</span>'}</td>
 <td style="font-size:11px">${a.trials.stage||'—'}</td>
 <td>${a.trOD>0?`<span class="oday">+${a.trOD}d</span>`:'<span style="color:#3aaa5e;font-size:11px">OK</span>'}</td>
-<td>${isA()?`<button class="abtn-sm btn-blue" style="padding:2px 7px;font-size:10px" onclick="window._aSel='${a.id}';PAGE='account-entry';EDIT_UNLOCKED={initial:false,trials:false};R()">Edit</button>`:`<button class="abtn-sm btn-blue" style="padding:2px 7px;font-size:10px" onclick="SEL_ACC='${a.id}';EDIT_UNLOCKED={initial:false,trials:false};PAGE='am-update';R()">Update AM</button>`}</td>
+<td>${isA()?`<button class="abtn-sm btn-blue" style="padding:2px 7px;font-size:10px" onclick="window._aSel='${a.id}';PAGE='account-entry';EDIT_UNLOCKED={initial:false,trials:false};R()">Edit</button>`:`<button class="abtn-sm btn-blue" style="padding:2px 7px;font-size:10px" onclick="SEL_ACC='${a.id}';EDIT_UNLOCKED={initial:false,trials:false};SEL_CS_AM='';PAGE='am-update';R()">Update AM</button>`}</td>
 </tr>`).join(''):'<tr><td colspan="12" style="text-align:center;padding:20px;color:var(--muted)">No records found</td></tr>'}
 </tbody></table></div>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px">
@@ -1308,32 +1315,46 @@ function closeM(){MODAL=null;R();}
 
 // Stage select for AM Update page (partner)
 function selCSAM(el, val){
-  document.querySelectorAll('.csp').forEach(b=>b.classList.remove('sel'));
-  el.classList.add('sel');
-  const h=document.getElementById('f-cs');if(h)h.value=val;
-  // Reset unlock state whenever stage changes
-  EDIT_UNLOCKED={initial:false,trials:false};
-  R();
+  // Store in JS variable — safe across re-renders
+  SEL_CS_AM = val;
+  EDIT_UNLOCKED = {initial:false, trials:false};
+  // Update pill styles without full re-render
+  document.querySelectorAll('#am-stage-pills .csp').forEach(b=>{
+    b.classList.toggle('sel', b.dataset.stage===val);
+  });
+  // Re-render only the action items section
+  const box = document.getElementById('am-action-items-box');
+  if(box){
+    const exAM = SEL_ACC ? getAM(SEL_ACC) : null;
+    box.innerHTML = buildStageActionItems(exAM, val);
+  }
 }
 // Stage select for Admin section
 function selCSAdmin(el, val){
-  document.querySelectorAll('.csp').forEach(b=>b.classList.remove('sel'));
-  el.classList.add('sel');
-  const h=document.getElementById('fa-cs');if(h)h.value=val;
-  EDIT_UNLOCKED={initial:false,trials:false};
-  R();
+  SEL_CS_ADMIN = val;
+  EDIT_UNLOCKED = {initial:false, trials:false};
+  document.querySelectorAll('#admin-stage-pills .csp').forEach(b=>{
+    b.classList.toggle('sel', b.dataset.stage===val);
+  });
+  const box = document.getElementById('admin-action-items-box');
+  if(box){
+    const accId = window._aSel||'';
+    const exAM = accId ? getAM(accId) : null;
+    box.innerHTML = buildStageActionItems(exAM, val);
+  }
 }
 
 function calcOD(val){const el=document.getElementById('od-disp');if(!el)return;const od=odD(val);el.textContent=val?(od>0?`+${od} days overdue`:'On track — not overdue'):'Enter next connect date';}
 function calcODAdmin(val){const el=document.getElementById('od-disp-admin');if(!el)return;const od=odD(val);el.textContent=val?(od>0?`+${od} days overdue`:'On track — not overdue'):'Enter next connect date';}
 
 /* ─────────────────────────── SAVE: AM UPDATE ─────────────────────────── */
-async function _doSaveAM(accId, exId, csFieldId, acdFieldId, ncdFieldId){
-  const cs=document.getElementById(csFieldId)?.value||'';
-  const acd=document.getElementById(acdFieldId)?.value||'';
-  const ncd=document.getElementById(ncdFieldId)?.value||'';
+async function _doSaveAM(accId, exId, isAdmin){
+  // Read stage from JS variable (not hidden input — those were removed)
+  const cs = isAdmin ? SEL_CS_ADMIN : SEL_CS_AM;
+  const acd=document.getElementById(isAdmin?'fa-acd':'f-acd')?.value||'';
+  const ncd=document.getElementById(isAdmin?'fa-ncd':'f-ncd')?.value||'';
 
-  // Read stage action items — ids are shared between both AM update and admin section
+  // Read stage action items from DOM
   const initAI=document.getElementById('f-init-ai')?.value||'';
   const trialsAI=document.getElementById('f-trials-ai')?.value||'';
   const biz1=document.getElementById('f-biz1')?.value||'';
@@ -1368,7 +1389,6 @@ async function _doSaveAM(accId, exId, csFieldId, acdFieldId, ncdFieldId){
   if(error)return sal('Error: '+error.message,'ae');
 
   const name=acc?.companyName||accId;
-  // Audit log each changed field
   if(cs!==prev.connectStage)await sbLog('Updated Connect Stage',name,'connectStage',prev.connectStage||'',cs,{accountId:accId});
   if(acd!==prev.connectDateDM)await sbLog('Updated Connect Date',name,'connectDateDM',prev.connectDateDM||'',acd,{accountId:accId});
   if(ncd!==prev.nextConnectDateDM)await sbLog('Updated Next Connect Date',name,'nextConnectDateDM',prev.nextConnectDateDM||'',ncd,{accountId:accId});
@@ -1383,10 +1403,10 @@ async function _doSaveAM(accId, exId, csFieldId, acdFieldId, ncdFieldId){
 }
 
 async function saveAMUpdate(accId,exId){
-  await _doSaveAM(accId,exId,'f-cs','f-acd','f-ncd');
+  await _doSaveAM(accId,exId,false);
 }
 async function saveAMUpdateAdmin(accId,exId){
-  await _doSaveAM(accId,exId,'fa-cs','fa-acd','fa-ncd');
+  await _doSaveAM(accId,exId,true);
 }
 
 /* ─────────────────────────── SAVE: ACCOUNT RECORD ─────────────────────────── */
