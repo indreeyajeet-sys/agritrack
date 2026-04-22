@@ -37,7 +37,7 @@ td{padding:7px 9px;border-bottom:1px solid #f0f3f8;color:#2d3748;vertical-align:
 tr:hover td{background:#fafbfe}
 .tscroll{overflow-x:auto}
 .pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700}
-.p-red{background:#e74c3c;color:#fff}.p-yellow{background:#e6a817;color:#fff}.p-green{background:#3aaa5e;color:#fff}
+.p-red{background:#e74c3c;color:#fff}.p-yellow{background:#e6a817;color:#fff}.p-green{background:#3aaa5e;color:#fff}.p-na{background:#7a8499;color:#fff}
 .oday{background:#fdecea;color:#c0392b;padding:2px 6px;border-radius:5px;font-weight:700;font-size:11px}
 .sh{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:700;margin-bottom:12px}
 .sh-ov{background:#e8f0fb;color:#1a5276}
@@ -189,7 +189,7 @@ function odD(d){if(!d)return 0;const diff=new Date(today())-new Date(d);return d
 function gu(id){return DB.users.find(u=>u.id===id)||{name:'—'};}
 function gs(id){return DB.stages.find(s=>s.id===id)||{name:'—'};}
 function getAM(aid){return DB.amUpdates.find(a=>a.account_id===aid)||null;}
-function sc(s){return s==='red'?'p-red':s==='yellow'?'p-yellow':'p-green';}
+function sc(s){return s==='red'?'p-red':s==='yellow'?'p-yellow':s==='na'?'p-na':'p-green';}
 const isA=()=>CU&&(CU.role==='admin'||CU.role==='superadmin');
 const isSA=()=>CU&&CU.role==='superadmin';
 
@@ -588,7 +588,7 @@ ${exAM?`<div class="banner banner-blue">Last saved on ${exAM.updatedAt}. Saving 
 ${canPartner('viewTrials')?`${canPartner('viewTrials')?`<div class="card"><div class="sh sh-tr">Trials <span style="font-size:11px;font-weight:500;margin-left:3px">(Trial Details)</span></div>
 <div class="fg3">
 <div class="fg"><label class="fl">Trial Stage</label><div class="ro-box">${sel.trials.stage||'—'}</div></div>
-<div class="fg"><label class="fl">Trial Status</label><div class="ro-box">${sel.trials.status?`<span class="pill ${sc(sel.trials.status)}">${sel.trials.status==='red'?'Red':sel.trials.status==='yellow'?'Yellow':'Green'}</span>`:'—'}</div></div>
+<div class="fg"><label class="fl">Trial Status</label><div class="ro-box">${sel.trials.status?`<span class="pill ${sc(sel.trials.status)}">${sel.trials.status==='red'?'Red':sel.trials.status==='yellow'?'Yellow':sel.trials.status==='na'?'N/A':'Green'}</span>`:'—'}</div></div>
 <div class="fg"><label class="fl">Trial Connect Date</label><div class="ro-box">${fmtD(sel.trials.connectDate)}</div></div>
 <div class="fg"><label class="fl">Trial Overdue</label><div class="od-disp">${odD(sel.trials.connectDate)>0?`+${odD(sel.trials.connectDate)} days overdue`:'On track'}</div></div>
 ${canPartner('viewTrialRemarks')?`<div class="fg"><label class="fl">Agri Manager</label><div class="ro-box">${sel.trials.agriManager||'—'}</div></div>
@@ -625,7 +625,7 @@ ${DB.accounts.map(a=>`<div onclick="window._aSel='${a.id}';R()" style="padding:9
 <div class="divlbl" style="margin-top:4px">Trial Details</div>
 <div class="fg3">
 <div class="fg"><label class="fl">Trial Stage</label>${ddS('fa-ts','trialStage',acc?.trials.stage||'')}</div>
-<div class="fg"><label class="fl">Trial Status</label><select id="fa-tst"><option value="red"${acc?.trials.status==='red'?' selected':''}>Red</option><option value="yellow"${(!acc||acc.trials.status==='yellow')?' selected':''}>Yellow</option><option value="green"${acc?.trials.status==='green'?' selected':''}>Green</option></select></div>
+<div class="fg"><label class="fl">Trial Status</label><select id="fa-tst"><option value="red"${acc?.trials.status==='red'?' selected':''}>Red</option><option value="yellow"${(!acc||acc.trials.status==='yellow')?' selected':''}>Yellow</option><option value="green"${acc?.trials.status==='green'?' selected':''}>Green</option><option value="na"${acc?.trials.status==='na'?' selected':''}>Not Applicable</option></select></div>
 <div class="fg"><label class="fl">Trial Connect Date</label><input type="date" id="fa-tcd" value="${acc?.trials.connectDate||''}"></div>
 <div class="fg"><label class="fl">Agri Manager</label><input type="text" id="fa-am" value="${acc?.trials.agriManager||''}"></div>
 <div class="fg full"><label class="fl">Remarks</label><textarea id="fa-rm">${acc?.trials.remarks||''}</textarea></div>
